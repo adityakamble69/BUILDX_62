@@ -44,3 +44,33 @@ export async function apiFetch(path, { token, body, headers, ...options } = {}) 
 }
 
 export const checkHealth = (signal) => apiFetch('/health', { signal });
+
+// --- Public reads (Phase 6). All are unauthenticated GETs. ---
+
+export const getStatsPublic = (signal) => apiFetch('/api/v1/stats/public', { signal });
+
+export const getCategories = (signal) => apiFetch('/api/v1/categories', { signal });
+
+/** @param {{ page?: number, pageSize?: number, category?: string, status?: string, sort?: 'newest'|'upvotes' }} [params] */
+export function listReports(params = {}, signal) {
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  ).toString();
+  return apiFetch(`/api/v1/reports${query ? `?${query}` : ''}`, { signal });
+}
+
+export const getReportById = (id, signal) => apiFetch(`/api/v1/reports/${id}`, { signal });
+
+/**
+ * Lightweight marker points for the map (capped server-side at 1000, rules.md §16).
+ * Returns bare `{ id, title, status, category_id, upvote_count, lat, lng }` rows — no
+ * thumbnail/area/timestamp, unlike `listReports`. See `/map` page for how the two are
+ * combined for richer popups.
+ * @param {{ category?: string, status?: string }} [params]
+ */
+export function getReportsMap(params = {}, signal) {
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  ).toString();
+  return apiFetch(`/api/v1/reports/map${query ? `?${query}` : ''}`, { signal });
+}

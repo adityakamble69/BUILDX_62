@@ -15,26 +15,32 @@ import { cn } from '@/lib/utils/cn';
  * } & Record<string, any>} props
  */
 const Select = forwardRef(function Select(
-  { label, helperText, error, required, id, className, placeholder, options, ...props },
+  { label, hideLabel = false, helperText, error, required, id, className, placeholder, options, value, ...props },
   ref,
 ) {
   const autoId = useId();
   const inputId = id ?? autoId;
   const describedBy = error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined;
+  // Uncontrolled by default (defaultValue=""); a caller passing `value` (e.g. a filter
+  // toolbar synced to the URL) gets a normal controlled select instead — React warns if
+  // both defaultValue and value are set on the same element.
+  const valueProps = value !== undefined ? { value } : { defaultValue: '' };
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={inputId} className="text-sm font-medium text-ink">
+      <label htmlFor={inputId} className={cn('text-sm font-medium text-ink', hideLabel && 'sr-only')}>
         {label} {required && <span className="text-danger">*</span>}
       </label>
       <div className="relative">
         <select
           ref={ref}
           id={inputId}
-          defaultValue=""
+          {...valueProps}
           aria-invalid={!!error}
           aria-describedby={describedBy}
           aria-required={required || undefined}
+          // See Input.jsx — same false-positive from form-filler browser extensions.
+          suppressHydrationWarning
           className={cn(
             'h-11 w-full appearance-none rounded-md border border-border bg-surface px-3 pr-9 text-base text-ink',
             'focus:outline-none focus:ring-2 focus:ring-primary-600',

@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabaseClient.js';
-import { AppError } from '../utils/AppError.js';
+import { dbError } from '../utils/dbError.js';
 import { toRange } from '../utils/pagination.js';
 
 export async function listNotifications(userId, pagination) {
@@ -10,7 +10,7 @@ export async function listNotifications(userId, pagination) {
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .range(from, to);
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not load notifications');
+  if (error) throw dbError('listNotifications', error, 'Could not load notifications');
   return { rows: data, total: count ?? 0 };
 }
 
@@ -23,5 +23,5 @@ export async function markNotificationsRead(userId, input) {
   query = input.id ? query.eq('id', input.id) : query.eq('is_read', false);
 
   const { error } = await query;
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not update notifications');
+  if (error) throw dbError('markNotificationsRead', error, 'Could not update notifications');
 }

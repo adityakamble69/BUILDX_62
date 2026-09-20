@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabaseClient.js';
 import { AppError } from '../utils/AppError.js';
+import { dbError } from '../utils/dbError.js';
 
 export async function listCategories() {
   const { data, error } = await supabase
@@ -7,7 +8,7 @@ export async function listCategories() {
     .select('id, slug, name, icon')
     .eq('is_active', true)
     .order('id');
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not load categories');
+  if (error) throw dbError('listCategories', error, 'Could not load categories');
   return data;
 }
 
@@ -24,7 +25,7 @@ export async function getCategoryIdBySlug(slug) {
     .eq('slug', slug)
     .eq('is_active', true)
     .maybeSingle();
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not resolve category');
+  if (error) throw dbError('getCategoryIdBySlug', error, 'Could not resolve category');
   if (!data) throw new AppError('VALIDATION_ERROR', 422, `Unknown category "${slug}"`);
   return data.id;
 }

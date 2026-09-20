@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabaseClient.js';
 import { AppError } from '../utils/AppError.js';
+import { dbError } from '../utils/dbError.js';
 import { toRange } from '../utils/pagination.js';
 import { getCategoryIdBySlug } from './categoryService.js';
 
@@ -37,7 +38,7 @@ export async function listReports(filters) {
 
   const { from, to } = toRange(filters);
   const { data, error, count } = await query.range(from, to);
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not load reports');
+  if (error) throw dbError('listReports', error, 'Could not load reports');
   return { rows: data, total: count ?? 0 };
 }
 
@@ -53,7 +54,7 @@ export async function getMapPoints(filters) {
     p_category: categoryId,
     p_status: filters.status ?? null,
   });
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not load map points');
+  if (error) throw dbError('getMapPoints', error, 'Could not load map points');
   return data;
 }
 
@@ -63,7 +64,7 @@ export async function getReportDetail(id) {
     .select(REPORT_DETAIL_SELECT)
     .eq('id', id)
     .maybeSingle();
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not load the report');
+  if (error) throw dbError('getReportDetail', error, 'Could not load the report');
   if (!report) throw new AppError('NOT_FOUND', 404, 'Report not found');
 
   const [{ data: comments, error: commentsErr }, { data: history, error: historyErr }] = await Promise.all([
@@ -78,7 +79,8 @@ export async function getReportDetail(id) {
       .eq('report_id', id)
       .order('created_at', { ascending: true }),
   ]);
-  if (commentsErr || historyErr) throw new AppError('INTERNAL_ERROR', 500, 'Could not load the report');
+  if (commentsErr || historyErr)
+    throw dbError('getReportDetail(comments/history)', commentsErr ?? historyErr, 'Could not load the report');
 
   return { ...report, comments, statusHistory: history };
 }
@@ -94,7 +96,7 @@ export async function findNearbyDuplicates({ lat, lng, category, radius }) {
     p_category: categoryId,
     p_radius: radius,
   });
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not check for duplicates');
+  if (error) throw dbError('findNearbyDuplicates', error, 'Could not check for duplicates');
   return data;
 }
 
@@ -116,7 +118,7 @@ export async function createReport(reporterId, input) {
     p_area_name: input.areaName ?? null,
     p_image_paths: input.imagePaths,
   });
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not create the report');
+  if (error) throw dbError('createReport', error, 'Could not create the report');
 
   return getReportDetail(data);
 }
@@ -132,21 +134,21 @@ export async function toggleUpvote(reportId, userId) {
     .select('id')
     .eq('id', reportId)
     .maybeSingle();
-  if (existsErr) throw new AppError('INTERNAL_ERROR', 500, 'Could not toggle upvote');
+  if (existsErr) throw dbError('toggleUpvote(exists check)', existsErr, 'Could not toggle upvote');
   if (!exists) throw new AppError('NOT_FOUND', 404, 'Report not found');
 
   const { data: upvoted, error } = await supabase.rpc('toggle_upvote', {
     p_report_id: reportId,
     p_user_id: userId,
   });
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not toggle upvote');
+  if (error) throw dbError('toggleUpvote', error, 'Could not toggle upvote');
 
   const { data: report, error: countErr } = await supabase
     .from('reports')
     .select('upvote_count')
     .eq('id', reportId)
     .single();
-  if (countErr) throw new AppError('INTERNAL_ERROR', 500, 'Could not toggle upvote');
+  if (countErr) throw dbError('toggleUpvote(count refetch)', countErr, 'Could not toggle upvote');
 
   return { upvoted, upvoteCount: report.upvote_count };
 }
@@ -159,6 +161,6 @@ export async function getMyReports(userId, pagination) {
     .eq('reporter_id', userId)
     .order('created_at', { ascending: false })
     .range(from, to);
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not load your reports');
+  if (error) throw dbError('getMyReports', error, 'Could not load your reports');
   return { rows: data, total: count ?? 0 };
 }

@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabaseClient.js';
 import { AppError } from '../utils/AppError.js';
+import { dbError } from '../utils/dbError.js';
 
 /**
  * @param {string} reportId
@@ -13,7 +14,7 @@ export async function addComment(reportId, userId, body, isAdmin = false) {
     .select('id')
     .eq('id', reportId)
     .maybeSingle();
-  if (reportErr) throw new AppError('INTERNAL_ERROR', 500, 'Could not add comment');
+  if (reportErr) throw dbError('addComment(report check)', reportErr, 'Could not add comment');
   if (!report) throw new AppError('NOT_FOUND', 404, 'Report not found');
 
   const { data, error } = await supabase
@@ -21,7 +22,7 @@ export async function addComment(reportId, userId, body, isAdmin = false) {
     .insert({ report_id: reportId, user_id: userId, body, is_admin: isAdmin })
     .select('id, body, is_admin, created_at, author:profiles(id, display_name, avatar_url)')
     .single();
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not add comment');
+  if (error) throw dbError('addComment', error, 'Could not add comment');
   return data;
 }
 
@@ -37,10 +38,10 @@ export async function deleteOwnComment(commentId, userId) {
     .select('id, user_id')
     .eq('id', commentId)
     .maybeSingle();
-  if (findErr) throw new AppError('INTERNAL_ERROR', 500, 'Could not delete comment');
+  if (findErr) throw dbError('deleteOwnComment(find)', findErr, 'Could not delete comment');
   if (!comment) throw new AppError('NOT_FOUND', 404, 'Comment not found');
   if (comment.user_id !== userId) throw new AppError('FORBIDDEN', 403, 'You can only delete your own comment');
 
   const { error } = await supabase.from('comments').delete().eq('id', commentId);
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not delete comment');
+  if (error) throw dbError('deleteOwnComment', error, 'Could not delete comment');
 }

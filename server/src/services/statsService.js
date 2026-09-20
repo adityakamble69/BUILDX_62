@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabaseClient.js';
-import { AppError } from '../utils/AppError.js';
+import { dbError } from '../utils/dbError.js';
 
 /** Backs both `/stats/public` (City Health) and `/admin/stats` (Phase 7). */
 export async function getPublicStats() {
@@ -7,7 +7,7 @@ export async function getPublicStats() {
     supabase.rpc('get_public_stats').single(),
     supabase.rpc('get_category_breakdown'),
   ]);
-  if (totalsErr || categoryErr) throw new AppError('INTERNAL_ERROR', 500, 'Could not load stats');
+  if (totalsErr || categoryErr) throw dbError('getPublicStats', totalsErr ?? categoryErr, 'Could not load stats');
 
   return { ...totals, byCategory };
 }

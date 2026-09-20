@@ -36,6 +36,8 @@ const Textarea = forwardRef(function Textarea(
         aria-describedby={describedBy}
         aria-required={required || undefined}
         rows={4}
+        // See Input.jsx — same false-positive from form-filler browser extensions.
+        suppressHydrationWarning
         className={cn(
           'resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-ink placeholder:text-ink-subtle',
           'focus:outline-none focus:ring-2 focus:ring-primary-600',

@@ -123,9 +123,9 @@
 ## Phase 6 — Citizen Frontend Features  (L)
 **Objective:** The complete citizen experience against the real API.
 **Tasks**
-- [ ] Landing page with live stats
-- [ ] `/map` with filters and marker popups
-- [ ] `/reports` feed with filters, sort, pagination
+- [x] Landing page with live stats
+- [x] `/map` with filters and marker popups
+- [x] `/reports` feed with filters, sort, pagination
 - [ ] `/reports/[id]` detail with photos, timeline, upvote, comments
 - [ ] `/report/new` multi-step form: photo (client-side compression) → location pick / "use my location" → details → duplicate check → submit
 - [ ] Reverse geocode area name (Nominatim) on pin change

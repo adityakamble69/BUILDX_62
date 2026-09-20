@@ -58,7 +58,7 @@ function FlyToCenter({ center, zoom }) {
  *  }>,
  *  center?: [number, number],
  *  zoom?: number,
- *  onMarkerClick?: (reportId: string) => void,
+ *  onMarkerClick?: (reportId: string) => void, // fired by the popup's "View details" link, not the marker itself — clicking the marker only opens its popup
  *  className?: string,
  * }} props
  */
@@ -77,12 +77,7 @@ export default function MapView({ reports = [], center, zoom, onMarkerClick, cla
         />
         <FlyToCenter center={center} zoom={zoom} />
         {reports.map((report) => (
-          <Marker
-            key={report.id}
-            position={[report.lat, report.lng]}
-            icon={buildIcon(report.status, report.upvoteCount)}
-            eventHandlers={onMarkerClick ? { click: () => onMarkerClick(report.id) } : undefined}
-          >
+          <Marker key={report.id} position={[report.lat, report.lng]} icon={buildIcon(report.status, report.upvoteCount)}>
             <Popup minWidth={220}>
               <div className="flex flex-col gap-2">
                 {report.thumbnailUrl && (

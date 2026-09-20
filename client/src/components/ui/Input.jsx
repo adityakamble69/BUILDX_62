@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils/cn';
  * @param {{ label: string, helperText?: string, error?: string, required?: boolean } & Record<string, any>} props
  */
 const Input = forwardRef(function Input(
-  { label, helperText, error, required, id, className, ...props },
+  { label, hideLabel = false, helperText, error, required, id, className, ...props },
   ref,
 ) {
   const autoId = useId();
@@ -17,7 +17,7 @@ const Input = forwardRef(function Input(
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={inputId} className="text-sm font-medium text-ink">
+      <label htmlFor={inputId} className={cn('text-sm font-medium text-ink', hideLabel && 'sr-only')}>
         {label} {required && <span className="text-danger">*</span>}
       </label>
       <input
@@ -26,6 +26,10 @@ const Input = forwardRef(function Input(
         aria-invalid={!!error}
         aria-describedby={describedBy}
         aria-required={required || undefined}
+        // Password-manager/form-filler extensions (LastPass, etc.) inject a
+        // `fdprocessedid` attribute into inputs before React hydrates, which otherwise
+        // trips a false-positive hydration warning that has nothing to do with our markup.
+        suppressHydrationWarning
         className={cn(
           'h-11 rounded-md border border-border bg-surface px-3 text-base text-ink placeholder:text-ink-subtle',
           'focus:outline-none focus:ring-2 focus:ring-primary-600',

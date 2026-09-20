@@ -1,6 +1,6 @@
 import { clerkClient } from '@clerk/express';
 import { supabase } from '../config/supabaseClient.js';
-import { AppError } from '../utils/AppError.js';
+import { dbError } from '../utils/dbError.js';
 
 /**
  * Lazily mirrors the Clerk user into `profiles` (rules.md §8). Called at the top of
@@ -21,5 +21,5 @@ export async function ensureProfile(userId) {
     p_display_name: displayName,
     p_avatar_url: user.imageUrl ?? null,
   });
-  if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not sync your profile');
+  if (error) throw dbError('ensureProfile', error, 'Could not sync your profile');
 }

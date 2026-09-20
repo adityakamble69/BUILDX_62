@@ -6,11 +6,11 @@
 ---
 
 ## Current Phase
-**Phase 5 — Core Backend: Reports API** (code complete; blocked on running `001`–`004` SQL in a real Supabase project — nothing here has touched real data yet)
-Next: create the Supabase project, run all four SQL files + sanity checks, upload seed images, finish the Phase 4 Clerk checklist, then **Phase 6 — Citizen Frontend Features**
+**Phase 6 — Citizen Frontend Features** (landing page + `/map` + `/reports` done, code-only like Phase 5 — still blocked on a real Supabase + Clerk project to test against real data)
+Next: `/reports/[id]` detail with photos, timeline, upvote, comments, then the rest of Phase 6's task list in order (see phases.md)
 
 ## Current Task
-Create the Supabase project (enable `postgis`, `pgcrypto`), run `001_schema.sql` → `002_functions.sql` → `003_seed.sql` → `004_phase5.sql` in that order in the SQL editor, upload `server/sql/seed-images/*` to the `report-images` bucket under `seed/`, then run every block of `sanity_checks.sql` (14 checks now) and compare against the expected values in its comments. In parallel: create the Clerk application (still pending from Phase 4) and run `server/requests/reports.http` end to end once both are live.
+Build `/reports/[id]` (detail page against `GET /reports/:id`: photos, status timeline, upvote, comments). Still outstanding underneath all of Phase 6: create the Supabase project, run `001`–`004` SQL + sanity checks, upload seed images, and finish the Phase 4 Clerk checklist — nothing built in Phase 5 or 6 has touched real data yet.
 
 ## Project Snapshot
 - **Project:** Civic Fix — citizen issue reporting with a public map and an admin resolution panel
@@ -40,9 +40,16 @@ Create the Supabase project (enable `postgis`, `pgcrypto`), run `001_schema.sql`
 - [x] Phase 5 services: `categoryService`, `reportService` (list/map/detail/duplicates/create/upvote/myReports), `uploadService` (signed upload URLs, path `reports/<userId>/<uuid>.<ext>`), `statsService`, `notificationService`, `commentService` (delete restricted to the comment's own author — admin delete-any is a Phase 7 route)
 - [x] Phase 5 routes: `public.js` (`/categories`, `/stats/public`), `reports.js` (public reads + citizen writes combined in one router, **static paths `/map` and `/nearby-duplicates` registered before the dynamic `/:id`** — see D17), `comments.js`, `uploads.js`, `me.js` extended with `/reports`, `/notifications`, `/notifications/read`
 - [x] Phase 5 verification done here (fake Supabase project, so only the shape is provable, not real data): server boots with `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` required; every route returns the correct status/envelope — 401 before validation on protected routes, 422 with `details` for bad query/body (bad `pageSize`, non-uuid `:id`), and a clean 500 (`{ error: { code: "INTERNAL_ERROR" } }`, no stack leaked) instead of a crash when Supabase itself is unreachable; confirmed `/reports/nearby-duplicates` and `/reports/map` are NOT swallowed by the `/:id` route
+- [x] Phase 6 landing page (`app/page.jsx`, `components/home/{HeroSection,StatsStrip,CategoryGrid,LatestReports}.jsx`): hero + CTA (server component, decorative inline SVG skyline instead of a stock photo), live stats strip (client component, `GET /stats/public`, fails soft to nothing if the API errors), browse-by-category grid (server component, static from the existing `lib/utils/categories.js` lookup — matches `ReportCard`'s existing pattern, no extra network call for fixed data), latest reports grid (client component, `GET /reports?pageSize=4&sort=newest`, reuses `ReportCard`/`ReportCardSkeleton`/`EmptyState`). Removed the temporary Phase 1 `ApiStatus` widget and its only usage in `page.jsx`, per its own "remove once real pages call the API" comment. Added `lib/utils/imageUrl.js` (`getReportImageUrl`/`getThumbnailUrl`) to turn `report_images.storage_path` into a public Storage URL client-side, and `lib/api.js` gained `getStatsPublic`/`getCategories`/`listReports`/`getReportById` helpers (rules.md §"use lib/api.js", not scattered fetches) — `getCategories` is added for later Phase 6 pages (e.g. the report form's category select) even though the landing page itself doesn't call it. Verified with `next build` locally (fonts stubbed to isolate the pre-existing Google Fonts sandbox limitation from D-3/style-guide's note — real code paths compiled and `/` prerendered as static with no errors); real data still unverified until Supabase is live
+- [x] Phase 6 `/map` (`app/map/page.jsx`, `components/map/MapReportListItem.jsx`): filter toolbar (search — client-side only, narrows the already-loaded list since the reports endpoint has no full-text param; category/status/sort selects wired to `GET /reports/map` + `GET /reports`), synced report list beside the map (`GET /reports`, pageSize 50, reuses `MapReportListItem` rather than `ReportCard` so a row click can re-center the map without colliding with the "view details" link — see D30/D31), marker popups enriched with thumbnail/area/time where the id also appears in the 50-row list, bare fallback (title/status/category only, via a new `GET /categories` id→name lookup) for markers beyond that. Added `getReportsMap` to `lib/api.js`. Changed `MapView` (Phase 3): marker click now only opens the popup (react-leaflet's default); previously the marker's own click handler fired the same `onMarkerClick` as the popup's "View details" button, which would have navigated away before the popup was visibly usable — first real caller of `onMarkerClick`, so this is the first time that bug was reachable. Added `hideLabel` to `ui/Select` and `ui/Input` (renders the label `sr-only` instead of dropping it, for compact filter toolbars) and made `ui/Select` a normal controlled input when a caller passes `value` (it previously always set `defaultValue=""`, which conflicts with `value` and is only safe for the wizard's uncontrolled usage) — both are additive, non-breaking changes to existing components. Verified with `next build` (same font-stub method as above); `/map` compiles and prerenders with no errors
+
+- [x] Phase 6 `/reports` (`app/reports/page.jsx`): filterable/sortable/paginated feed against `GET /reports` (category/status/sort selects, same option lists as `/map` minus the "excludes rejected" carve-out — `/reports` isn't capped like the map RPC, so "Rejected" is a valid status filter here), grid of `ReportCard`/`ReportCardSkeleton` (`sm:grid-cols-2 lg:grid-cols-4`, matching the landing page's `LatestReports` grid), report count next to the filters (`meta.total`). No search box: unlike `/map` (which loads up to 50 rows and can narrow them client-side), this page only ever holds one page of rows at a time, so a client-side filter would silently miss matches on other pages — left out rather than shipped misleading. New `ui/Pagination.jsx` (Prev/Next + "Page X of Y" against `meta.page/pageSize/total`, renders nothing for a single page) — first list view to need real pagination controls, built as a reusable `ui/` component since Phase 7's admin reports table will need the same thing. Changing any filter/sort resets to page 1 (a stale page number could otherwise land past the new result set's last page). Verified with `next build` (same font-stub method as `/map`); `/reports` compiles and prerenders with no errors
+
+- [x] Fixed a server-wide bug: every service (`reportService`, `profileService`, `statsService`, `uploadService`, `categoryService`, `notificationService`, `commentService` — 21 call sites) threw a bare `AppError('INTERNAL_ERROR', ...)` on a Supabase error without logging the Supabase error itself, so any real failure (missing migration, bad `SUPABASE_URL`/key, RLS denial, unreachable project) showed up in the server log as only its own generic message (e.g. "Could not load reports") with no way to diagnose it — this is what the user hit testing `/reports` locally. Added `server/src/utils/dbError.js` (`dbError(context, error, clientMessage)`): logs the real `message`/`code`/`details`/`hint` via `logger.error`, then returns the same generic `AppError` to throw — client response is unchanged (rules.md §10, no raw errors to clients), only the server log gained the missing detail. Verified by booting the server against an unreachable fake `SUPABASE_URL` and hitting `/api/v1/categories`: the log now shows `"Supabase error in listCategories"` with the real DNS/fetch failure right before the generic error, where previously nothing but the generic message would have appeared
 
 ## Currently Working On
-- Phase 5 sign-off: create the Supabase project and run the SQL (nothing here can be tested against real data until then); Phase 4's Clerk account setup is still outstanding alongside it
+- Phase 6 landing page + `/map` + `/reports` done (see Completed); next is `/reports/[id]`
+- Still open underneath: Phase 5 sign-off (create the Supabase project and run the SQL — nothing here can be tested against real data until then) and Phase 4's outstanding Clerk account setup
 
 ## Files Currently Being Modified
 - None
@@ -100,6 +107,11 @@ Create the Supabase project (enable `postgis`, `pgcrypto`), run `001_schema.sql`
 | 25 | `comments`/`notifications` use plain `supabase.from()` calls instead of RPCs; only multi-table transactions (`create_report`) or PostGIS math need a DB function now that the service-role key bypasses RLS (architecture D18) | 2026-09-20 |
 | 26 | `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are **required** server env vars from Phase 5, same fail-fast pattern as Clerk in Phase 4 (architecture D19) | 2026-09-20 |
 | 27 | Rate limits are keyed by Clerk `userId` when authenticated, falling back to IP for guests, so the limit tracks a person rather than a shared office/campus IP | 2026-09-20 |
+| 28 | Report photo URLs are built client-side from `NEXT_PUBLIC_SUPABASE_URL` + the fixed `report-images` bucket path, not returned by the API — the API keeps returning storage *paths* only (unchanged Phase 5 contract); this is a pure string operation on a public-read bucket, not a DB/auth concern | 2026-09-20 |
+| 29 | Landing page's category grid stays static (local `categories.js` lookup) instead of calling `GET /categories`, since the six categories are fixed seed data `ReportCard` already trusts from the same source; `GET /categories` is still used wherever the *set of active categories* could actually change server-side (e.g. the report form's select, Phase 6 later) | 2026-09-20 |
+| 30 | `/map`'s sidebar reuses a new `MapReportListItem`, not `ReportCard` — `ReportCard` is one big `<Link>`, and the sidebar needs a click that re-centers the map plus a separate click that navigates, which don't nest safely inside one anchor | 2026-09-20 |
+| 31 | `/reports/map` markers are enriched from the same-filtered `GET /reports` call (capped at 50 rows) rather than adding thumbnail/area/time to the map RPC itself — keeps `get_map_points` lightweight (rules.md §16's whole point) while still giving the common case a rich popup; markers past row 50 fall back to a bare popup | 2026-09-20 |
+| 32 | `suppressHydrationWarning` added to `ui/Input`'s `<input>`, `ui/Select`'s `<select>`, and `ui/Textarea`'s `<textarea>` — form-filler browser extensions (LastPass and similar) stamp a `fdprocessedid` attribute onto form fields before React hydrates, which otherwise trips a false-positive hydration warning on every page with a form control; confirmed via `/map`'s toolbar in a real browser | 2026-09-20 |
 
 ## Dependency Log
 - Approved for later phases (client): `chart.js` + `react-chartjs-2` (Phase 7/8)
@@ -115,6 +127,11 @@ Create the Supabase project (enable `postgis`, `pgcrypto`), run `001_schema.sql`
 - Departments: Roads, Sanitation, Electricity, Water Supply, Drainage.
 
 ## Recent Changes
+- 2026-09-20: Fixed swallowed Supabase errors across all 7 server services (21 call sites) — new `server/src/utils/dbError.js` logs the real DB error before throwing the generic `AppError`. See Completed. Found while debugging the user's local "Could not load reports" 500 on `/reports`.
+- 2026-09-20: Phase 6 `/reports` built (see Completed). New `ui/Pagination.jsx`. Docs updated: phases.md ticks "`/reports` feed with filters, sort, pagination", memory.md, phase progress table.
+- 2026-09-20: Fixed a false-positive hydration warning on `/map`'s filter toolbar (see D32) — `suppressHydrationWarning` added to `ui/Input`, `ui/Select`, `ui/Textarea`.
+- 2026-09-20: Phase 6 `/map` built (see Completed). Docs updated: phases.md ticks "`/map` with filters and marker popups", memory.md D30/D31, phase progress table.
+- 2026-09-20: Phase 6 landing page built (see Completed). Docs updated: phases.md ticks "Landing page with live stats", memory.md D28/D29, environment checklist (`NEXT_PUBLIC_SUPABASE_URL`), phase progress table.
 - 2026-09-20: Phase 4 auth implemented on both sides (see Completed). Docs updated: architecture.md §5/§10/§14 + D15/D16, phases.md Phase 4 ticks and the profiles-upsert move to Phase 5.
 - 2026-09-20: Phase 5 Reports API implemented (see Completed): `sql/004_phase5.sql`, all services/controllers/routes, rate limiting, REST collection. Docs updated: database.md §8, architecture.md §14 + D17/D18/D19, phases.md Phase 5 ticks, sanity_checks.sql checks 11-14. Verified route shape and error handling against a fake Supabase project; real data paths need Phase 2's SQL run for real.
 - 2026-09-20: Created all seven documentation files (initial versions).
@@ -129,7 +146,7 @@ Create the Supabase project (enable `postgis`, `pgcrypto`), run `001_schema.sql`
 - Phase 6: `ReportCard` must handle a missing image (seed photos only exist after the upload step).
 
 ## Next Task
-Create the Supabase project and run `001_schema.sql` → `002_functions.sql` → `003_seed.sql` → `004_phase5.sql` + `sanity_checks.sql`, upload seed images, and finish the outstanding Phase 4 Clerk setup alongside it. Once both are live, re-run `server/requests/auth.http` and `server/requests/reports.http` with real tokens and a real seeded report id, then start **Phase 6 — Citizen Frontend Features** against the real API.
+Build `/reports/[id]` (Phase 6, next task in phases.md's list): report detail page against `GET /reports/:id` — photos, status timeline, upvote, comments. In parallel, the still-outstanding infrastructure step remains: create the Supabase project and run `001_schema.sql` → `002_functions.sql` → `003_seed.sql` → `004_phase5.sql` + `sanity_checks.sql`, upload seed images, and finish the outstanding Phase 4 Clerk setup — everything built in Phase 5/6 so far is code-complete but untested against real data.
 
 ## Deployment Status
 | Item | Status | URL |
@@ -141,7 +158,7 @@ Create the Supabase project and run `001_schema.sql` → `002_functions.sql` →
 | Uptime pinger | Not set up | — |
 
 ## Environment Checklist (values live in dashboards, never in this file)
-- Client (Vercel): `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (server-only), plus the four `NEXT_PUBLIC_CLERK_*_URL` values in `client/.env.example`
+- Client (Vercel): `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL` (Phase 6, builds public report-photo URLs — safe to expose, same project as the server's `SUPABASE_URL`), `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (server-only), plus the four `NEXT_PUBLIC_CLERK_*_URL` values in `client/.env.example`
 - Server (Render): `NODE_ENV`, `PORT` (Render sets it), `CLIENT_ORIGIN`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (all required as of Phase 5); `AI_ENABLED`, `AI_API_KEY` from Phase 8
 
 ## Phase Progress
@@ -153,7 +170,7 @@ Create the Supabase project and run `001_schema.sql` → `002_functions.sql` →
 | 3 UI foundation | Component kit, layouts, MapView, ReportCard, style-guide page done; responsive device check pending |
 | 4 Auth & roles | Code done; Clerk account + live token tests pending |
 | 5 Reports API | Code done; Supabase project + real SQL run pending |
-| 6 Citizen frontend | Not started |
+| 6 Citizen frontend | Landing page + `/map` + `/reports` done; detail, new-report wizard, `/my-reports`, notifications still pending |
 | 7 Admin panel | Not started |
 | 8 AI + City Health | Not started |
 | 9 Testing & polish | Not started |

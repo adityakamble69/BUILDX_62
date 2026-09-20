@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { supabase } from '../config/supabaseClient.js';
-import { AppError } from '../utils/AppError.js';
+import { dbError } from '../utils/dbError.js';
 
 const EXT_BY_MIME = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const BUCKET = 'report-images';
@@ -20,7 +20,7 @@ export async function createSignedUploads(userId, { count, contentType }) {
     Array.from({ length: count }, async () => {
       const path = `reports/${userId}/${randomUUID()}.${ext}`;
       const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
-      if (error) throw new AppError('INTERNAL_ERROR', 500, 'Could not create an upload URL');
+      if (error) throw dbError('createSignedUploads', error, 'Could not create an upload URL');
       return { path: data.path, token: data.token, signedUrl: data.signedUrl };
     }),
   );
