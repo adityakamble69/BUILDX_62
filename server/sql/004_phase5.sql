@@ -40,18 +40,29 @@ $$;
 -- (rules.md §6: multi-table writes go through a transaction or a DB function).
 -- p_reporter_id must already exist in profiles — the API calls upsert_profile first.
 -- ---------------------------------------------------------------------------
+-- Widening severity/ai_severity to `int` (see note below) changes the function's
+-- argument-type signature, which `create or replace` cannot do — Postgres would
+-- silently add a second overload instead of replacing the old one. Drop it first;
+-- safe to re-run.
+drop function if exists create_report(text, int, text, text, smallint, double precision, double precision, text, text[], int, smallint);
+
 create or replace function create_report(
   p_reporter_id text,
   p_category_id int,
   p_title text,
   p_description text,
-  p_severity smallint,
+  -- `int` here (not `smallint`, even though reports.severity is smallint): a bare SQL
+  -- literal like `2` defaults to `integer`, and Postgres does not implicitly narrow
+  -- integer -> smallint when matching function overloads, so `smallint` here made the
+  -- function uncallable from raw SQL (PostgREST's typed RPC calls were unaffected).
+  -- The insert below relies on the ordinary assignment cast into the smallint column.
+  p_severity int,
   p_lat double precision,
   p_lng double precision,
   p_area_name text,
   p_image_paths text[],
   p_ai_category_id int default null,
-  p_ai_severity smallint default null
+  p_ai_severity int default null  -- same reasoning as p_severity above
 ) returns uuid language plpgsql as $$
 declare v_report_id uuid; v_path text;
 begin
@@ -97,12 +108,12 @@ end; $$;
 
 revoke execute on function
   upsert_profile(text, text, text),
-  create_report(text, int, text, text, smallint, double precision, double precision, text, text[], int, smallint),
+  create_report(text, int, text, text, int, double precision, double precision, text, text[], int, int),
   toggle_upvote(uuid, text)
 from public, anon, authenticated;
 
 grant execute on function
   upsert_profile(text, text, text),
-  create_report(text, int, text, text, smallint, double precision, double precision, text, text[], int, smallint),
+  create_report(text, int, text, text, int, double precision, double precision, text, text[], int, int),
   toggle_upvote(uuid, text)
 to service_role;
