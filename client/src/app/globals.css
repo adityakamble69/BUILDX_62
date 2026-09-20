@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-bg font-body text-base text-ink antialiased;
+  }
+
+  h1, h2, h3 {
+    @apply font-heading text-secondary-600;
+  }
+
+  /* Visible keyboard focus everywhere (design.md §8). */
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-primary-600;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

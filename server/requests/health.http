@@ -1,0 +1,5 @@
+### Local health check
+GET http://localhost:4000/health
+
+### Deployed health check (replace with your Render URL)
+GET https://your-service.onrender.com/health
