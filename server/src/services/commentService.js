@@ -45,3 +45,18 @@ export async function deleteOwnComment(commentId, userId) {
   const { error } = await supabase.from('comments').delete().eq('id', commentId);
   if (error) throw dbError('deleteOwnComment', error, 'Could not delete comment');
 }
+
+/**
+ * Admin moderation: delete any comment, no ownership check (architecture.md
+ * `DELETE /admin/comments/:id`). Goes through the `admin_delete_comment` RPC rather than
+ * a plain `.delete()` only so a missing id surfaces as a clean 404 instead of a silent
+ * no-op (rules.md §10 — don't swallow errors).
+ * @param {string} commentId
+ */
+export async function adminDeleteComment(commentId) {
+  const { error } = await supabase.rpc('admin_delete_comment', { p_comment_id: commentId });
+  if (error) {
+    if (error.message?.includes('COMMENT_NOT_FOUND')) throw new AppError('NOT_FOUND', 404, 'Comment not found');
+    throw dbError('adminDeleteComment', error, 'Could not delete comment');
+  }
+}

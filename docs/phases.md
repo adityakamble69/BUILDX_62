@@ -126,11 +126,11 @@
 - [x] Landing page with live stats
 - [x] `/map` with filters and marker popups
 - [x] `/reports` feed with filters, sort, pagination
-- [ ] `/reports/[id]` detail with photos, timeline, upvote, comments
-- [ ] `/report/new` multi-step form: photo (client-side compression) → location pick / "use my location" → details → duplicate check → submit
-- [ ] Reverse geocode area name (Nominatim) on pin change
-- [ ] `/my-reports`
-- [ ] Notification bell + `/notifications`
+- [x] `/reports/[id]` detail with photos, timeline, upvote, comments
+- [x] `/report/new` multi-step form: photo (client-side compression) → location pick / "use my location" → details → duplicate check → submit
+- [x] Reverse geocode area name (Nominatim) on pin change
+- [x] `/my-reports`
+- [x] Notification bell + `/notifications`
 - [ ] Optimistic upvote, toasts, loading/empty/error states
 **Files:** `client/src/app/**`, `client/src/components/report/**`, `client/src/components/map/**`
 **Dependencies:** Phases 3, 4, 5

@@ -95,3 +95,64 @@ select upvote_count as after_add from reports where id = '22b50f95-bbc3-5ffd-90e
 select toggle_upvote('22b50f95-bbc3-5ffd-90e8-49d04b4e8f7d', 'user_seed_02');   -- false
 select upvote_count as after_remove from reports where id = '22b50f95-bbc3-5ffd-90e8-49d04b4e8f7d';
 rollback;
+
+-- ---------------------------------------------------------------------------
+-- Phase 7 additions (sql/005_phase7.sql). Run after 005_phase7.sql.
+-- ---------------------------------------------------------------------------
+
+-- 15. assign_report_department + change_report_status together, on a fresh sanity report.
+-- Rolled back afterwards. Expect: department_id set, status in_progress, 1 status_history
+-- row, 1 notification for the reporter
+begin;
+select upsert_profile('user_sanity_check', 'Sanity Reporter', null);
+select upsert_profile('user_seed_admin', 'Sanity Admin', null);
+select create_report(
+  'user_sanity_check', (select id from categories where slug = 'pothole'),
+  'Sanity check assign+status', 'Created by sanity_checks.sql', 2,
+  21.15, 79.09, 'Sanity Area', array['seed/before-pothole-1.jpg']
+);
+select id as sanity_report_id into temp sanity_report from reports where title = 'Sanity check assign+status';
+select assign_report_department((select id from sanity_report), (select id from departments where name = 'Roads'));
+select change_report_status((select id from sanity_report), 'in_progress', 'user_seed_admin', 'Crew dispatched');
+select department_id, status from reports where id = (select id from sanity_report);   -- <Roads id> | in_progress
+select count(*) from status_history where report_id = (select id from sanity_report);  -- 1
+select count(*) from notifications where report_id = (select id from sanity_report);   -- 1
+rollback;
+
+-- 16. add_resolution_image attaches an 'after' photo without touching status.
+-- Rolled back afterwards. Expect: 1 'after' image row, status unchanged ('reported')
+begin;
+select upsert_profile('user_sanity_check', 'Sanity Reporter', null);
+select upsert_profile('user_seed_admin', 'Sanity Admin', null);
+select create_report(
+  'user_sanity_check', (select id from categories where slug = 'pothole'),
+  'Sanity check after photo', 'Created by sanity_checks.sql', 2,
+  21.15, 79.09, 'Sanity Area', array['seed/before-pothole-1.jpg']
+);
+select id as sanity_report_id into temp sanity_report from reports where title = 'Sanity check after photo';
+select add_resolution_image((select id from sanity_report), 'seed/after-pothole.jpg', 'user_seed_admin');
+select kind from report_images where report_id = (select id from sanity_report) and kind = 'after'; -- after
+select status from reports where id = (select id from sanity_report);                               -- reported
+rollback;
+
+-- 17. delete_report cascades to report_images/status_history (on delete cascade, 001_schema.sql).
+-- Rolled back afterwards. Expect: 0 rows in either table for the deleted report id
+begin;
+select upsert_profile('user_sanity_check', 'Sanity Reporter', null);
+select create_report(
+  'user_sanity_check', (select id from categories where slug = 'pothole'),
+  'Sanity check delete', 'Created by sanity_checks.sql', 2,
+  21.15, 79.09, 'Sanity Area', array['seed/before-pothole-1.jpg']
+);
+select id as sanity_report_id into temp sanity_report from reports where title = 'Sanity check delete';
+select delete_report((select id from sanity_report));
+select count(*) from report_images where report_id = (select id from sanity_report);   -- 0
+select count(*) from status_history where report_id = (select id from sanity_report);  -- 0
+rollback;
+
+-- 18. get_admin_stats and get_department_breakdown run without error and return one row
+-- per department. Expect: get_admin_stats -> 1 row; get_department_breakdown -> 5 rows
+-- (Roads, Sanitation, Electricity, Water Supply, Drainage)
+select * from get_admin_stats();
+select * from get_department_breakdown() order by name;
+

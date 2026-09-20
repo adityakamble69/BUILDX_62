@@ -21,7 +21,10 @@ export async function getReportsMap(req, res) {
 }
 
 export async function getReportById(req, res) {
-  const data = await getReportDetail(req.params.id);
+  // Public route (no requireAuth) — clerkMiddleware still populates auth when a signed-in
+  // viewer's token was sent, so `viewerHasUpvoted` can be resolved in the same request.
+  const { userId } = getAuthContext(req);
+  const data = await getReportDetail(req.params.id, userId);
   res.json({ data });
 }
 

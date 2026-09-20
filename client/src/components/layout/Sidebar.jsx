@@ -7,10 +7,8 @@ import { SignOutButton } from '@clerk/nextjs';
 import {
   LayoutDashboard,
   FileText,
-  ClipboardList,
-  Inbox,
-  CircleAlert,
-  ChartColumn,
+  Flame,
+  Building2,
   Menu,
   X,
   LogOut,
@@ -18,13 +16,16 @@ import {
 import Logo from '@/components/layout/Logo';
 import { cn } from '@/lib/utils/cn';
 
+// architecture.md §14's folder tree is the only source of truth for admin routes:
+// /admin, /admin/reports, /admin/reports/[id], /admin/heatmap, /admin/departments.
+// The uploaded UI mockup shows extra items (Assign Task, Submissions, Incomplete,
+// Analytics) that have no matching route anywhere in the docs — flagged for the team
+// rather than built, same as the report wizard's step order (memory.md D35/D37).
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/reports', label: 'Reports', icon: FileText },
-  { href: '/admin/assign', label: 'Assign Task', icon: ClipboardList },
-  { href: '/admin/submissions', label: 'Submissions', icon: Inbox },
-  { href: '/admin/incomplete', label: 'Incomplete', icon: CircleAlert },
-  { href: '/admin/analytics', label: 'Analytics', icon: ChartColumn },
+  { href: '/admin/heatmap', label: 'Heatmap', icon: Flame },
+  { href: '/admin/departments', label: 'Departments', icon: Building2 },
 ];
 
 /** @param {{ adminName?: string, adminEmail?: string }} props */

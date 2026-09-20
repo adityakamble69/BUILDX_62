@@ -8,6 +8,7 @@ import {
   getMe,
   getMyReportsList,
   getMyNotifications,
+  getMyUnreadNotificationCount,
   patchMyNotificationsRead,
 } from '../controllers/meController.js';
 
@@ -17,6 +18,7 @@ router.use(requireAuth);
 
 router.get('/', asyncHandler(getMe));
 router.get('/reports', validate(paginationSchema, 'query'), asyncHandler(getMyReportsList));
+router.get('/notifications/unread-count', asyncHandler(getMyUnreadNotificationCount));
 router.get('/notifications', validate(paginationSchema, 'query'), asyncHandler(getMyNotifications));
 router.patch('/notifications/read', validate(notificationsReadSchema), asyncHandler(patchMyNotificationsRead));
 

@@ -2,6 +2,22 @@ import { supabase } from '../config/supabaseClient.js';
 import { dbError } from '../utils/dbError.js';
 import { toRange } from '../utils/pagination.js';
 
+/**
+ * Powers the navbar bell's unread dot (Phase 6). A separate `head: true` count query
+ * instead of paginating `listNotifications` and counting client-side — cheap, and gives
+ * an exact number instead of "unread in the first page".
+ * @param {string} userId
+ */
+export async function countUnreadNotifications(userId) {
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('is_read', false);
+  if (error) throw dbError('countUnreadNotifications', error, 'Could not load notification count');
+  return count ?? 0;
+}
+
 export async function listNotifications(userId, pagination) {
   const { from, to } = toRange(pagination);
   const { data, error, count } = await supabase

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Bell, Menu, X } from 'lucide-react';
+import { Bell, FileText, Menu, X } from 'lucide-react';
 import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
 import Logo from '@/components/layout/Logo';
 import Button from '@/components/ui/Button';
@@ -16,8 +16,8 @@ const NAV_LINKS = [
 ];
 
 /**
- * Auth state comes from Clerk. The unread notification count is wired to the real
- * API in Phase 6; until then the bell renders without a dot.
+ * Auth state comes from Clerk. `unreadNotifications` is passed down by `SiteChrome` from
+ * `NotificationContext` (Phase 6), which polls `GET /me/notifications/unread-count`.
  * @param {{ unreadNotifications?: number }} props
  */
 export default function Navbar({ unreadNotifications = 0 }) {
@@ -42,6 +42,14 @@ export default function Navbar({ unreadNotifications = 0 }) {
               {link.label}
             </Link>
           ))}
+          <SignedIn>
+            <Link
+              href="/my-reports"
+              className="text-sm font-medium text-ink-muted transition hover:text-primary-600"
+            >
+              My Reports
+            </Link>
+          </SignedIn>
           {isAdmin && (
             <Link
               href="/admin"
@@ -125,6 +133,13 @@ export default function Navbar({ unreadNotifications = 0 }) {
           )}
           <div className="mt-2 border-t border-border pt-3">
             <SignedIn>
+              <Link
+                href="/my-reports"
+                onClick={() => setMenuOpen(false)}
+                className="flex h-11 items-center gap-3 rounded-md px-3 text-base font-medium text-ink hover:bg-bg"
+              >
+                <FileText className="h-5 w-5" aria-hidden="true" /> My Reports
+              </Link>
               <Link
                 href="/notifications"
                 onClick={() => setMenuOpen(false)}
