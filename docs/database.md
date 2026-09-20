@@ -310,7 +310,7 @@ on conflict (id) do update
       allowed_mime_types = excluded.allowed_mime_types;
 ```
 
-## 8. Important Queries / Functions (`server/sql/002_functions.sql`)
+## 8. Important Queries / Functions (`server/sql/002_functions.sql`, `server/sql/004_phase5.sql`)
 
 `supabase-js` cannot run raw SQL, so every query below that the API needs is exposed as a Postgres function and called with `.rpc()`. The raw SQL is kept here as the reference for what each function does. All functions are `revoke`d from `public`, `anon`, and `authenticated` and granted only to `service_role`.
 
@@ -325,7 +325,18 @@ on conflict (id) do update
 
 Notes:
 - `change_report_status` writes `status_history.changed_by`, which is a FK to `profiles`; the API must upsert the admin's profile first.
-- Report list/detail endpoints also need `lat`/`lng` from `location`. How they get them (PostgREST computed columns or an RPC) is decided in Phase 5 and documented here first.
+- **Phase 5 decision:** report list/detail endpoints read `lat`/`lng` from the view `reports_with_coords` (`select *, st_y(location::geometry) as lat, st_x(location::geometry) as lng from reports`) rather than an RPC — supabase-js can select ordinary columns and embedded relations (`category:categories(...)`) from a view exactly like a table, which a `.rpc()` call cannot do. The view is `security_invoker`, revoked from `public`/`anon`/`authenticated`, and granted only to `service_role`, same as the functions below.
+
+### Phase 5 additions (`server/sql/004_phase5.sql`)
+
+| Object | Kind | Wraps | Used by |
+|---|---|---|---|
+| `reports_with_coords` | view | `reports` + `lat`/`lng` | `GET /reports`, `GET /reports/:id`, `GET /me/reports` |
+| `upsert_profile(id, display_name, avatar_url)` | function | Lazy `profiles` upsert (rules.md §8) | Every authenticated write (`ensureProfile` in `profileService.js`) |
+| `create_report(reporter_id, category_id, title, description, severity, lat, lng, area_name, image_paths[], ai_category_id, ai_severity)` | function | Atomic insert of `reports` + `report_images` (kind `before`) + the initial `status_history` row (`null -> reported`) | `POST /reports` |
+| `toggle_upvote(report_id, user_id)` | function | Insert/delete on `upvotes`; the existing `upvotes_sync` trigger keeps `upvote_count` in step either way | `POST /reports/:id/upvote` |
+
+`create_report` mirrors `change_report_status`: a multi-table write goes through one DB function so the report, its images, and its history row can never end up out of sync (rules.md §6). `comments` and `notifications` reads/writes do **not** need functions — the service-role key bypasses RLS, so `commentService.js`/`notificationService.js` use plain `supabase.from(...)` calls scoped by `user_id`/`report_id` in the query itself.
 
 **Nearby duplicate check** (same category, open, within 50 m):
 ```sql

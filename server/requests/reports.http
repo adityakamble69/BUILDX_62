@@ -1,0 +1,110 @@
+### Phase 5 — Reports API smoke tests
+# Get a token from the browser console on the running client while signed in:
+#   await window.Clerk.session.getToken()
+# Tokens are short-lived (~60s), so refresh when you get 401.
+
+@baseUrl = http://localhost:4000
+@citizenToken = paste_citizen_token_here
+
+### Categories (public)
+GET {{baseUrl}}/api/v1/categories
+
+### Reports feed (public) — newest first, page 1
+GET {{baseUrl}}/api/v1/reports?page=1&pageSize=10&sort=newest
+
+### Reports feed filtered by category + status
+GET {{baseUrl}}/api/v1/reports?category=pothole&status=reported
+
+### Map points (public, capped at 1000)
+GET {{baseUrl}}/api/v1/reports/map
+
+### Report detail (public)
+# Replace with a real id once 003_seed.sql has been run.
+GET {{baseUrl}}/api/v1/reports/00000000-0000-0000-0000-000000000000
+
+### City Health stats (public)
+GET {{baseUrl}}/api/v1/stats/public
+
+### --- Everything below requires a citizen token ---
+
+### Sign upload URLs
+POST {{baseUrl}}/api/v1/uploads/sign
+Authorization: Bearer {{citizenToken}}
+Content-Type: application/json
+
+{ "count": 1, "contentType": "image/jpeg" }
+
+### Nearby duplicate check
+GET {{baseUrl}}/api/v1/reports/nearby-duplicates?lat=21.1458&lng=79.0882&category=pothole
+Authorization: Bearer {{citizenToken}}
+
+### Create a report (imagePaths from the /uploads/sign step above, after the real upload)
+POST {{baseUrl}}/api/v1/reports
+Authorization: Bearer {{citizenToken}}
+Content-Type: application/json
+
+{
+  "title": "Large pothole near MG Road bus stop",
+  "description": "Causes traffic issues, needs immediate repair.",
+  "category": "pothole",
+  "severity": 3,
+  "lat": 21.1458,
+  "lng": 79.0882,
+  "areaName": "MG Road, Ward 5",
+  "imagePaths": ["reports/user_xxx/replace-with-real-path.jpg"]
+}
+
+### Toggle upvote (run twice to see it flip)
+POST {{baseUrl}}/api/v1/reports/00000000-0000-0000-0000-000000000000/upvote
+Authorization: Bearer {{citizenToken}}
+
+### Add a comment
+POST {{baseUrl}}/api/v1/reports/00000000-0000-0000-0000-000000000000/comments
+Authorization: Bearer {{citizenToken}}
+Content-Type: application/json
+
+{ "body": "Same issue near the bus stop, please prioritize." }
+
+### Delete own comment
+DELETE {{baseUrl}}/api/v1/comments/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{citizenToken}}
+
+### My reports
+GET {{baseUrl}}/api/v1/me/reports
+Authorization: Bearer {{citizenToken}}
+
+### My notifications
+GET {{baseUrl}}/api/v1/me/notifications
+Authorization: Bearer {{citizenToken}}
+
+### Mark all notifications read
+PATCH {{baseUrl}}/api/v1/me/notifications/read
+Authorization: Bearer {{citizenToken}}
+Content-Type: application/json
+
+{ "all": true }
+
+### Mark one notification read
+PATCH {{baseUrl}}/api/v1/me/notifications/read
+Authorization: Bearer {{citizenToken}}
+Content-Type: application/json
+
+{ "id": "00000000-0000-0000-0000-000000000000" }
+
+### --- Validation / error-shape checks ---
+
+### Missing required field → 422 with details
+POST {{baseUrl}}/api/v1/reports
+Authorization: Bearer {{citizenToken}}
+Content-Type: application/json
+
+{ "title": "x" }
+
+### Unknown category slug → 422
+GET {{baseUrl}}/api/v1/reports?category=not-a-real-category
+
+### No token on a citizen route → 401
+POST {{baseUrl}}/api/v1/reports
+Content-Type: application/json
+
+{}

@@ -1,4 +1,8 @@
 import { Space_Grotesk, DM_Sans } from 'next/font/google';
+import { ClerkProvider } from '@clerk/nextjs';
+import { ToastProvider } from '@/lib/context/ToastContext';
+import SiteChrome from '@/components/layout/SiteChrome';
+import { clerkAppearance } from '@/lib/utils/clerkAppearance';
 import './globals.css';
 
 const heading = Space_Grotesk({
@@ -22,8 +26,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${heading.variable} ${body.variable}`}>
-      <body>{children}</body>
-    </html>
+    <ClerkProvider appearance={clerkAppearance}>
+      <html lang="en" className={`${heading.variable} ${body.variable}`}>
+        <body>
+          <ToastProvider>
+            <SiteChrome>{children}</SiteChrome>
+          </ToastProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

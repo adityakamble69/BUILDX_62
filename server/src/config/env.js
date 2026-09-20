@@ -2,12 +2,16 @@ import 'dotenv/config';
 import { z } from 'zod';
 import { logger } from '../utils/logger.js';
 
-// Only Phase 1 variables are required now. Add Clerk/Supabase/AI keys here
-// (as required) in the phase that first uses them, so startup fails fast.
+// Variables are added here in the phase that first uses them, so startup fails fast.
+// Phase 1: NODE_ENV/PORT/CLIENT_ORIGIN. Phase 4: Clerk. Phase 5: Supabase. AI keys follow later.
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
   CLIENT_ORIGIN: z.string().url().default('http://localhost:3000'),
+  CLERK_PUBLISHABLE_KEY: z.string().min(1, 'CLERK_PUBLISHABLE_KEY is required'),
+  CLERK_SECRET_KEY: z.string().min(1, 'CLERK_SECRET_KEY is required'),
+  SUPABASE_URL: z.string().url('SUPABASE_URL is required'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
 });
 
 const parsed = schema.safeParse(process.env);

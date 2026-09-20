@@ -68,9 +68,10 @@ Admin ─► /admin ─► Reports table ─► Report manage page
 - **Framework:** Next.js 15 App Router, JavaScript (no TypeScript), React 19. Import alias `@/` maps to `client/src`.
 - **Routing:** file-based under `client/src/app` (`page.jsx`, `layout.jsx`).
 - **Layouts:**
-  - `app/layout.jsx` (root): `<ClerkProvider>` (from Phase 4), navbar, toast host, fonts via `next/font/google`.
-  - `app/(admin)/admin/layout.jsx`: admin shell with sidebar + role guard.
-- **Auth:** `@clerk/nextjs` (added in Phase 4). `src/middleware.js` uses `clerkMiddleware` to redirect unauthenticated users away from citizen pages and non-admins away from `/admin` (reads `sessionClaims.metadata.role`). Client components get the token with `useAuth().getToken()` and pass it to `lib/api.js`, which adds `Authorization`.
+  - `app/layout.jsx` (root): `<ClerkProvider>`, toast host, fonts via `next/font/google`, and `<SiteChrome>`.
+  - `SiteChrome` (client) renders the public navbar/footer and returns children untouched on `/admin`, so the admin shell is not double-framed. This avoids splitting every public page into a second route group.
+  - `app/(admin)/admin/layout.jsx`: admin shell with sidebar + server-side role guard (`auth()` → redirect).
+- **Auth:** `@clerk/nextjs` (added in Phase 4). `src/middleware.js` uses `clerkMiddleware` to redirect unauthenticated users away from citizen pages and non-admins away from `/admin` (reads `sessionClaims.metadata.role`). Client components call `useApi()` (`lib/useApi.js`), which reads `useAuth().getToken()` and passes the token to `lib/api.js`; `api.js` itself stays Clerk-free.
 - **Single data source:** Next.js code never imports Supabase and never touches the database. The only data source is the Express API.
 - **Server vs client components:** default to server components for static shells; add `'use client'` only when a component needs state, effects, or browser APIs (maps, forms, upvote, comments). Public data pages (map, feed, City Health) fetch on the client with skeleton loaders, because a sleeping Render instance would otherwise hang the whole server render. If a page does fetch on the server, it must use a short timeout and `revalidate`.
 - **State:** React Context + hooks in `lib/context/` for current user, filters, and notification count. No global state library.
@@ -150,6 +151,7 @@ Users are identified by Clerk `userId` (string like `user_2abc...`). It is store
 **Citizen (auth)**
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/api/v1/me` | Current user id + role (auth smoke test, Phase 4) |
 | POST | `/api/v1/uploads/sign` | Get signed upload URL(s) for images |
 | GET | `/api/v1/reports/nearby-duplicates` | Duplicate check (`lat,lng,category`) |
 | POST | `/api/v1/reports` | Create report |
@@ -164,6 +166,7 @@ Users are identified by Clerk `userId` (string like `user_2abc...`). It is store
 **Admin (auth + admin)**
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/api/v1/admin/ping` | Role smoke test: 200 admin, 403 citizen (Phase 4; remove after Phase 7) |
 | GET | `/api/v1/admin/reports` | Full table with filters |
 | PATCH | `/api/v1/admin/reports/:id/status` | Change status + note |
 | PATCH | `/api/v1/admin/reports/:id/assign` | Assign department |
@@ -236,6 +239,8 @@ civic-fix/
 │   │   │   ├── notifications/page.jsx
 │   │   │   ├── sign-in/[[...sign-in]]/page.jsx
 │   │   │   ├── sign-up/[[...sign-up]]/page.jsx
+│   │   │   ├── auth-check/page.jsx          # temporary Phase 4 token test, delete before demo
+│   │   │   ├── style-guide/page.jsx         # temporary Phase 3 component gallery, delete before demo
 │   │   │   └── (admin)/admin/
 │   │   │       ├── layout.jsx
 │   │   │       ├── page.jsx
@@ -245,11 +250,12 @@ civic-fix/
 │   │   │       └── departments/page.jsx
 │   │   ├── components/
 │   │   │   ├── ui/              # Button, Card, Input, Badge, Modal, Toast, Skeleton
-│   │   │   ├── layout/          # Navbar, Sidebar, Footer
+│   │   │   ├── layout/          # Navbar, Sidebar, Footer, SiteChrome, Logo
 │   │   │   ├── map/             # MapView, MarkerPopup, HeatLayer
 │   │   │   └── report/          # ReportCard, ReportForm, StatusTimeline, UpvoteButton, CommentList
 │   │   ├── lib/
 │   │   │   ├── api.js           # fetch wrapper (token passed in from Clerk)
+│   │   │   ├── useApi.js        # hook: apiFetch + current Clerk token
 │   │   │   ├── context/         # user, filters, notifications
 │   │   │   └── utils/           # formatters, constants
 │   │   └── middleware.js        # Clerk route protection (Phase 4)
@@ -264,16 +270,17 @@ civic-fix/
     ├── src/
     │   ├── index.js             # app bootstrap
     │   ├── config/              # env loader, supabase client, clerk setup
-    │   ├── middleware/          # auth, requireAdmin, validate, errorHandler, rateLimit
-    │   ├── routes/              # index.js, public.js, citizen.js, admin.js
-    │   ├── controllers/
-    │   ├── services/            # reportService, statsService, notificationService, aiService, uploadService
-    │   ├── validators/          # Zod schemas
+    │   ├── middleware/          # auth (requireAuth/requireAdmin), validate, errorHandler, rateLimit
+    │   ├── routes/              # index.js, public.js, reports.js, comments.js, uploads.js, me.js, admin.js
+    │   ├── controllers/         # categoriesController, reportsController, commentsController, uploadsController, statsController, meController
+    │   ├── services/            # categoryService, reportService, commentService, uploadService, statsService, notificationService, profileService, aiService (Phase 8)
+    │   ├── validators/          # Zod schemas (reportValidators, commentValidators, uploadValidators, notificationValidators)
     │   └── utils/               # AppError, asyncHandler, pagination
     ├── sql/
     │   ├── 001_schema.sql        # tables, indexes, triggers, RLS, storage bucket
     │   ├── 002_functions.sql     # duplicates, status change, stats/map/heatmap RPCs
     │   ├── 003_seed.sql          # demo data
+    │   ├── 004_phase5.sql        # reports_with_coords view, upsert_profile, create_report, toggle_upvote
     │   ├── sanity_checks.sql     # verification queries with expected values
     │   └── seed-images/          # placeholder photos to upload to the bucket under seed/
     ├── .env.example
@@ -317,6 +324,11 @@ See §14 (`client/src/app`). Guards:
 | D12 | Next.js server code never imports Supabase; it only calls Express | Keeps D2 intact (one enforcement point) |
 | D13 | Public data pages fetch client-side (or server-side with timeout + revalidate) | Render cold start must not hang server rendering |
 | D14 | Aggregate and geo queries are Postgres functions called with `.rpc()`, executable only by `service_role` | `supabase-js` cannot run raw SQL; Supabase would otherwise expose the functions to `anon` |
+| D15 | Public chrome is hidden on `/admin` by a `SiteChrome` client wrapper instead of a `(public)` route group | Keeps the documented `app/` tree intact; one file instead of moving every public page |
+| D16 | Clerk keys are required env vars on the server from Phase 4 (startup fails without them) | Auth silently degrading to "everyone is a guest" is worse than a loud boot failure |
+| D17 | `reports.js` mixes public reads and citizen writes in one router (not split into `public.js` + a citizen router) with static routes (`/map`, `/nearby-duplicates`) registered before the dynamic `/:id` | Express matches routes by registration order, not specificity — a `/:id` route registered first would swallow `/reports/map` as `id = "map"` |
+| D18 | `comments` and `notifications` are read/written with plain `supabase.from(...)` calls, not RPCs | The service-role key already bypasses RLS; a function is only needed for multi-table transactions (`create_report`, `change_report_status`) or geometry math the PostgREST query builder can't express |
+| D19 | Supabase keys are required env vars on the server from Phase 5 (startup fails without them), same pattern as D16 for Clerk | Consistent fail-fast behavior; a half-configured backend should refuse to boot, not serve 500s for every request |
 
 ## 18. Deployment Architecture
 - `client/` → Vercel (root directory `client`, framework preset Next.js), env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (server-only; Clerk keys are needed from Phase 4).

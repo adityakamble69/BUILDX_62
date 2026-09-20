@@ -23,3 +23,22 @@
     }
   }
 }
+
+/* design.md §11 — micro (150ms) and panel (250ms) animations, ease-out. */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* react-leaflet's popup close button and content need a couple of overrides to match design.md tokens. */
+.leaflet-popup-content-wrapper {
+  border-radius: 10px;
+}
+.leaflet-popup-content {
+  margin: 12px;
+}

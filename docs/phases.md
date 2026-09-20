@@ -66,11 +66,11 @@
 ## Phase 3 — UI Foundation & Design System  (M)
 **Objective:** Reusable UI kit and layouts matching `design.md`.
 **Tasks**
-- [ ] Configure Tailwind theme tokens (colors, fonts, radius, shadows)
-- [ ] Build `ui/` components: Button, Card, Input, Textarea, Select, Badge, Modal, Toast, Skeleton, EmptyState
-- [ ] Build Navbar, Footer, admin Sidebar layouts
-- [ ] Build `MapView` component (browse mode) with `react-leaflet` (loaded via `next/dynamic`, `ssr: false`)
-- [ ] Build `ReportCard` and `StatusBadge`
+- [x] Configure Tailwind theme tokens (colors, fonts, radius, shadows)
+- [x] Build `ui/` components: Button, Card, Input, Textarea, Select, Badge, Modal, Toast, Skeleton, EmptyState
+- [x] Build Navbar, Footer, admin Sidebar layouts
+- [x] Build `MapView` component (browse mode) with `react-leaflet` (loaded via `next/dynamic`, `ssr: false`)
+- [x] Build `ReportCard` and `StatusBadge`
 - [ ] Responsive check at 360 / 768 / 1280 px
 **Files:** `client/src/components/**`, `tailwind.config.js`, `client/src/app/globals.css`
 **Dependencies:** Phase 1
@@ -82,14 +82,14 @@
 ## Phase 4 — Authentication & Roles  (M)
 **Objective:** Sign-in works end to end, admin role enforced on the backend.
 **Tasks**
-- [ ] Integrate `@clerk/nextjs` (ClerkProvider, `middleware.js`, sign-in/sign-up catch-all pages, user button)
-- [ ] `lib/api.js` fetch wrapper attaching the Clerk token (token passed in from `useAuth().getToken`)
-- [ ] Server: `clerkMiddleware`, `requireAuth`, `requireAdmin`
-- [ ] `GET /api/v1/me` (returns id + role) for a quick auth test
-- [ ] Lazy `profiles` upsert on first authenticated write
+- [x] Integrate `@clerk/nextjs` (ClerkProvider, `middleware.js`, sign-in/sign-up catch-all pages, user button)
+- [x] `lib/api.js` fetch wrapper attaching the Clerk token (token passed in from `useAuth().getToken` via the `useApi` hook)
+- [x] Server: `clerkMiddleware`, `requireAuth`, `requireAdmin`
+- [x] `GET /api/v1/me` (returns id + role) for a quick auth test
+- [~] Lazy `profiles` upsert on first authenticated write — **moved to Phase 5** (needs the Supabase client, and Phase 4 has no write endpoints)
 - [ ] Set `role: "admin"` on one Clerk user; verify claims reach the server
-- [ ] Route guards: `middleware.js` for citizen pages and `/admin`, plus the `(admin)` layout check
-**Files:** `client/src/app/sign-in`, `client/src/app/sign-up`, `client/src/lib/api.js`, `client/src/middleware.js`, `client/src/app/(admin)/admin/layout.jsx`, `server/src/middleware/auth.js`
+- [x] Route guards: `middleware.js` for citizen pages and `/admin`, plus the `(admin)` layout check
+**Files:** `client/src/app/sign-in`, `client/src/app/sign-up`, `client/src/lib/api.js`, `client/src/lib/useApi.js`, `client/src/middleware.js`, `client/src/app/(admin)/admin/layout.jsx`, `server/src/middleware/auth.js`
 **Dependencies:** Phases 1, 3
 **Expected result:** Citizen and admin logins behave differently; admin API returns 403 for citizens.
 **Completion criteria:** Tested with a citizen token and an admin token on the deployed API.
@@ -99,22 +99,24 @@
 ## Phase 5 — Core Backend: Reports API  (L)
 **Objective:** All citizen and public endpoints working.
 **Tasks**
-- [ ] Zod validators, `AppError`, `errorHandler`, `asyncHandler`, pagination util
-- [ ] `GET /categories`
-- [ ] `GET /reports`, `GET /reports/map`, `GET /reports/:id`
-- [ ] `POST /uploads/sign`
-- [ ] `GET /reports/nearby-duplicates`
-- [ ] `POST /reports`
-- [ ] `POST /reports/:id/upvote` (toggle)
-- [ ] `POST /reports/:id/comments`, `DELETE /comments/:id`
-- [ ] `GET /me/reports`, `GET /me/notifications`, `PATCH /me/notifications/read`
-- [ ] `GET /stats/public`
-- [ ] Rate limits on write endpoints
-- [ ] Save a REST client collection in `server/`
-**Files:** `server/src/routes|controllers|services|validators/**`
+- [x] Zod validators, pagination util (`AppError`, `errorHandler`, `asyncHandler` done in Phase 4)
+- [x] Lazy `profiles` upsert on the first authenticated write (moved here from Phase 4) — `upsert_profile` RPC + `ensureProfile()`
+- [x] `GET /categories`
+- [x] `GET /reports`, `GET /reports/map`, `GET /reports/:id`
+- [x] `POST /uploads/sign`
+- [x] `GET /reports/nearby-duplicates`
+- [x] `POST /reports`
+- [x] `POST /reports/:id/upvote` (toggle)
+- [x] `POST /reports/:id/comments`, `DELETE /comments/:id`
+- [x] `GET /me/reports`, `GET /me/notifications`, `PATCH /me/notifications/read`
+- [x] `GET /stats/public`
+- [x] Rate limits on write endpoints (global 120/min, 10/hr on `POST /reports`, 15/min on `POST /comments`)
+- [x] Save a REST client collection in `server/` (`server/requests/reports.http`)
+- [ ] Run `004_phase5.sql` in the Supabase SQL editor (after 001–003) and its block in `sanity_checks.sql`
+**Files:** `server/src/routes|controllers|services|validators/**`, `server/sql/004_phase5.sql`
 **Dependencies:** Phases 2, 4
 **Expected result:** Full public/citizen API usable with a REST client.
-**Completion criteria:** Every endpoint tested for success, validation error, and unauthorized cases.
+**Completion criteria:** Every endpoint tested for success, validation error, and unauthorized cases — done here with a fake Supabase project (boot + auth + validation paths only); real data-path testing needs Phase 2's SQL actually run in Supabase.
 
 ---
 

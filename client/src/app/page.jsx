@@ -1,11 +1,9 @@
-import Logo from '@/components/layout/Logo';
 import ApiStatus from '@/components/layout/ApiStatus';
 
 // Placeholder landing page for Phase 1. Replaced in Phase 6.
 export default function HomePage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-[1200px] flex-col justify-center gap-8 px-4 py-12 md:px-6">
-      <Logo />
+    <div className="mx-auto flex max-w-[1200px] flex-col justify-center gap-8 px-4 py-12 md:px-6">
       <div className="max-w-xl">
         <h1 className="text-[28px] font-bold leading-9 md:text-[32px] md:leading-10">
           Report. Prioritize. Resolve.
@@ -17,6 +15,6 @@ export default function HomePage() {
       <div className="max-w-xl">
         <ApiStatus />
       </div>
-    </main>
+    </div>
   );
 }

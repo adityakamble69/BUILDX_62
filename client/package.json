@@ -8,9 +8,14 @@
     "start": "next start"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.39.0",
+    "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0",
+    "lucide-react": "^1.47.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

@@ -1,4 +1,5 @@
-export default function Logo({ size = 32 }) {
+/** @param {{ size?: number, mode?: 'light' | 'dark' }} props */
+export default function Logo({ size = 32, mode = 'light' }) {
   return (
     <span className="inline-flex items-center gap-2">
       <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
@@ -8,7 +9,11 @@ export default function Logo({ size = 32 }) {
         />
         <circle cx="16" cy="12.5" r="4.2" fill="#FFFFFF" />
       </svg>
-      <span className="font-heading text-xl font-bold text-secondary-600">Civic Fix</span>
+      <span
+        className={`font-heading text-xl font-bold ${mode === 'dark' ? 'text-white' : 'text-secondary-600'}`}
+      >
+        Civic Fix
+      </span>
     </span>
   );
 }

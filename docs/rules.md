@@ -162,7 +162,7 @@
 **DO**
 - Prefer built-ins and existing dependencies first.
 - Pin major versions; commit lockfiles.
-- Approved core deps — client: `next`, `react`, `react-dom`, `@clerk/nextjs`, `leaflet`, `react-leaflet`, `leaflet.heat`, `chart.js`, `react-chartjs-2`, `tailwindcss` (3.4), `postcss`, `autoprefixer`; server: `express`, `cors`, `helmet`, `@clerk/express`, `@supabase/supabase-js`, `zod`, `express-rate-limit`, `dotenv`.
+- Approved core deps — client: `next`, `react`, `react-dom`, `@clerk/nextjs`, `leaflet`, `react-leaflet`, `leaflet.heat`, `lucide-react`, `chart.js`, `react-chartjs-2`, `tailwindcss` (3.4), `postcss`, `autoprefixer`; server: `express`, `cors`, `helmet`, `@clerk/express`, `@supabase/supabase-js`, `zod`, `express-rate-limit`, `dotenv`.
 
 **DON'T**
 - Install a library for something achievable in a few lines.

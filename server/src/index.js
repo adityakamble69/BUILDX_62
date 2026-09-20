@@ -1,9 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { clerkMiddleware } from '@clerk/express';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import routes from './routes/index.js';
+import { globalRateLimit } from './middleware/rateLimit.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -26,12 +28,21 @@ app.use(
 );
 app.use(express.json({ limit: '100kb' }));
 
+// Verifies the Bearer token when one is present and populates the auth context.
+// It never rejects on its own; requireAuth/requireAdmin decide that per route.
+app.use(
+  clerkMiddleware({
+    publishableKey: env.CLERK_PUBLISHABLE_KEY,
+    secretKey: env.CLERK_SECRET_KEY,
+  }),
+);
+
 // Health check lives outside /api/v1 (Render + uptime pinger).
 app.get('/health', (_req, res) => {
   res.json({ data: { status: 'ok', uptime: Math.round(process.uptime()), time: new Date().toISOString() } });
 });
 
-app.use('/api/v1', routes);
+app.use('/api/v1', globalRateLimit, routes);
 
 app.use(notFound);
 app.use(errorHandler);

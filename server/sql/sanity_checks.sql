@@ -54,3 +54,44 @@ order by relname;
 
 -- 10. Storage bucket. Expect: report-images | true | 5242880
 select id, public, file_size_limit from storage.buckets where id = 'report-images';
+
+-- ---------------------------------------------------------------------------
+-- Phase 5 additions (sql/004_phase5.sql). Run after 004_phase5.sql.
+-- ---------------------------------------------------------------------------
+
+-- 11. reports_with_coords exposes lat/lng and matches the seeded pothole from check 5.
+-- Expect: lat about 21.124811, lng about 79.057730
+select lat, lng from reports_with_coords where id = '9b3d6191-d1c3-5850-ae3d-5a7e8b7431bc';
+
+-- 12. Lazy profile upsert is idempotent. Rolled back afterwards. Expect: one profiles row, display_name updated on the second call
+begin;
+select upsert_profile('user_sanity_check', 'Sanity One', null);
+select upsert_profile('user_sanity_check', 'Sanity Two', 'https://example.com/a.png');
+select display_name, avatar_url from profiles where id = 'user_sanity_check';    -- Sanity Two | https://example.com/a.png
+rollback;
+
+-- 13. create_report inserts the report, its before image, and the initial status_history
+-- row atomically. Looked up by title (no \gset — this runs in the Supabase SQL editor,
+-- not psql). Rolled back afterwards. Expect: 1 image row, 1 history row (null -> reported)
+begin;
+select upsert_profile('user_sanity_check', 'Sanity Reporter', null);
+select create_report(
+  'user_sanity_check', (select id from categories where slug = 'pothole'),
+  'Sanity check pothole', 'Created by sanity_checks.sql', 2,
+  21.15, 79.09, 'Sanity Area', array['seed/before-pothole-1.jpg']
+);
+select count(*) from report_images ri join reports r on r.id = ri.report_id
+  where r.title = 'Sanity check pothole';                                       -- 1
+select sh.from_status, sh.to_status from status_history sh join reports r on r.id = sh.report_id
+  where r.title = 'Sanity check pothole';                                       -- <null> | reported
+rollback;
+
+-- 14. toggle_upvote flips both ways and the trigger keeps upvote_count in step.
+-- Rolled back afterwards. Expect: true, count+1, then false, count back to original
+begin;
+select upvote_count as before from reports where id = '22b50f95-bbc3-5ffd-90e8-49d04b4e8f7d';
+select toggle_upvote('22b50f95-bbc3-5ffd-90e8-49d04b4e8f7d', 'user_seed_02');   -- true
+select upvote_count as after_add from reports where id = '22b50f95-bbc3-5ffd-90e8-49d04b4e8f7d';
+select toggle_upvote('22b50f95-bbc3-5ffd-90e8-49d04b4e8f7d', 'user_seed_02');   -- false
+select upvote_count as after_remove from reports where id = '22b50f95-bbc3-5ffd-90e8-49d04b4e8f7d';
+rollback;
