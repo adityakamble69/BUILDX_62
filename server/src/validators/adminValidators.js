@@ -9,7 +9,7 @@ export const adminReportListQuerySchema = paginationSchema.extend({
   category: z.string().trim().min(1).optional(), // category slug
   status: z.enum(REPORT_STATUSES).optional(),
   department: z.coerce.number().int().positive().optional(), // department id
-  sort: z.enum(['newest', 'upvotes']).default('newest'),
+  sort: z.enum(['newest', 'upvotes', 'severity']).default('newest'),
 });
 
 export const departmentIdParamsSchema = z.object({

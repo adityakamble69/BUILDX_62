@@ -1,15 +1,26 @@
 import { supabase } from '../config/supabaseClient.js';
 import { dbError } from '../utils/dbError.js';
 
-/** Backs both `/stats/public` (City Health) and `/admin/stats` (Phase 7). */
+/**
+ * Backs `/stats/public` (City Health + the landing page's live strip). `topOpenReports`
+ * (Phase 8, `get_top_open_reports`, sql/006_phase8.sql) covers PRD FR16's "top upvoted
+ * open issues" — the one City Health number `get_public_stats`/`get_category_breakdown`
+ * don't already provide.
+ */
 export async function getPublicStats() {
-  const [{ data: totals, error: totalsErr }, { data: byCategory, error: categoryErr }] = await Promise.all([
+  const [
+    { data: totals, error: totalsErr },
+    { data: byCategory, error: categoryErr },
+    { data: topOpenReports, error: topErr },
+  ] = await Promise.all([
     supabase.rpc('get_public_stats').single(),
     supabase.rpc('get_category_breakdown'),
+    supabase.rpc('get_top_open_reports', { p_limit: 5 }),
   ]);
-  if (totalsErr || categoryErr) throw dbError('getPublicStats', totalsErr ?? categoryErr, 'Could not load stats');
+  const firstError = totalsErr ?? categoryErr ?? topErr;
+  if (firstError) throw dbError('getPublicStats', firstError, 'Could not load stats');
 
-  return { ...totals, byCategory };
+  return { ...totals, byCategory, topOpenReports };
 }
 
 /**

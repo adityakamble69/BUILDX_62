@@ -5,6 +5,7 @@ import commentRoutes from './comments.js';
 import uploadRoutes from './uploads.js';
 import meRoutes from './me.js';
 import adminRoutes from './admin.js';
+import aiRoutes from './ai.js';
 
 // Mounted at /api/v1.
 const router = Router();
@@ -15,5 +16,6 @@ router.use('/comments', commentRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/me', meRoutes);
 router.use('/admin', adminRoutes);
+router.use('/ai', aiRoutes); // Phase 8: POST /ai/classify
 
 export default router;

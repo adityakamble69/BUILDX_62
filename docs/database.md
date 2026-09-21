@@ -310,7 +310,7 @@ on conflict (id) do update
       allowed_mime_types = excluded.allowed_mime_types;
 ```
 
-## 8. Important Queries / Functions (`server/sql/002_functions.sql`, `server/sql/004_phase5.sql`)
+## 8. Important Queries / Functions (`server/sql/002_functions.sql`, `server/sql/004_phase5.sql`, `server/sql/005_phase7.sql`)
 
 `supabase-js` cannot run raw SQL, so every query below that the API needs is exposed as a Postgres function and called with `.rpc()`. The raw SQL is kept here as the reference for what each function does. All functions are `revoke`d from `public`, `anon`, and `authenticated` and granted only to `service_role`.
 
@@ -337,6 +337,23 @@ Notes:
 | `toggle_upvote(report_id, user_id)` | function | Insert/delete on `upvotes`; the existing `upvotes_sync` trigger keeps `upvote_count` in step either way | `POST /reports/:id/upvote` |
 
 `create_report` mirrors `change_report_status`: a multi-table write goes through one DB function so the report, its images, and its history row can never end up out of sync (rules.md §6). `comments` and `notifications` reads/writes do **not** need functions — the service-role key bypasses RLS, so `commentService.js`/`notificationService.js` use plain `supabase.from(...)` calls scoped by `user_id`/`report_id` in the query itself.
+
+### Phase 7 additions (`server/sql/005_phase7.sql`)
+
+| Object | Kind | Wraps | Used by |
+|---|---|---|---|
+| `admin_reports_view` | view | `reports` + `lat`/`lng`, every status, no reporter filter | `GET /admin/reports` |
+| `assign_report_department(report_id, department_id)` | function | Sets `reports.department_id`; no note, no notification (not a status transition) | `PATCH /admin/reports/:id/assign` |
+| `add_resolution_image(report_id, storage_path, admin_id)` | function | Inserts a `report_images` row with `kind = 'after'` | `POST /admin/reports/:id/resolution-image` |
+| `delete_report(report_id)` | function | Deletes a report; cascades to `report_images`/`upvotes`/`comments`/`status_history`/`notifications` via their FKs | `DELETE /admin/reports/:id` |
+| `admin_delete_comment(comment_id)` | function | Deletes any comment, no ownership check (citizen delete-own is a plain `.delete()` in `commentService.js`, unchanged) | `DELETE /admin/comments/:id` |
+| `get_admin_stats()` | function | One row: total/reported/in_progress/resolved/rejected + resolved % + avg hours to resolve | `GET /admin/stats` |
+| `get_reports_trend(days = 7)` | function | Reported/in-progress/resolved counts per day, last N days | `GET /admin/stats` |
+| `get_department_breakdown()` | function | Report count per department | `GET /admin/stats` |
+
+`add_resolution_image` and `assign_report_department` are kept separate from `change_report_status` on purpose: assigning a department isn't itself a status transition (no note, no notification), and an admin may attach an "after" photo as proof mid-fix, before the status actually moves to `resolved` — folding either into `change_report_status` would fire a reporter notification that a same-time photo upload or assignment shouldn't duplicate.
+
+**Sanity checks:** `server/sql/sanity_checks.sql` #15–18 cover `assign_report_department` + `change_report_status` together, `add_resolution_image`, `delete_report`'s cascade, and `get_admin_stats()`/`get_department_breakdown()` returning without error.
 
 **Nearby duplicate check** (same category, open, within 50 m):
 ```sql

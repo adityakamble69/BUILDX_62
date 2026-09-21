@@ -6,11 +6,11 @@
 ---
 
 ## Current Phase
-**Phase 6 — Citizen Frontend Features** (every page built — landing, `/map`, `/reports`, `/reports/[id]`, `/report/new`, `/my-reports`, `/notifications`; code-only like Phase 5 — still blocked on a real Supabase + Clerk project to test against real data)
-Next: Phase 6's last task — the loading/empty/error + optimistic-UI polish pass — which is largely a *browser* pass and needs live data, so Phase 1/2's Supabase setup is now the real blocker. Phase 7 (admin panel) is the next build phase.
+**Phase 7 — Admin Panel** (server + all 4 admin pages built — dashboard, reports table, report detail/manage, heatmap, departments — code-only like Phases 5/6, still blocked on a real Supabase + Clerk project to test against real data)
+Next: same infrastructure blocker as before — nothing in Phase 5, 6 or 7 has run against real data yet. Once live: walk both the citizen and admin journeys in a browser (PRD §11), which finishes Phase 6's polish task and Phase 7's "notification on status change" checklist item at the same time. Phase 8 (AI + City Health) is the next build phase after that.
 
 ## Current Task
-Set up the real infrastructure so Phase 6 can actually be tested, then run Phase 6's polish pass in a browser. Still outstanding underneath all of Phase 6: create the Supabase project, run `001`–`004` SQL + sanity checks, upload seed images, and finish the Phase 4 Clerk checklist — nothing built in Phase 5 or 6 has touched real data yet.
+Set up the real infrastructure so Phases 5-7 can actually be tested: create the Supabase project, run `001`–`005` SQL + sanity checks, upload seed images, finish the Phase 4 Clerk checklist (customized session token, one admin user). Nothing built since Phase 4 has touched real data yet.
 
 ## Project Snapshot
 - **Project:** Civic Fix — citizen issue reporting with a public map and an admin resolution panel
@@ -49,13 +49,15 @@ Set up the real infrastructure so Phase 6 can actually be tested, then run Phase
 
 - [x] Phase 6 `/report/new` (`app/report/new/page.jsx` + `components/report/wizard/{Stepper,PhotoStep,LocationStep,DetailsStep,ReviewStep}.jsx` + `lib/utils/uploadReportImages.js`): 4-step wizard in phases.md's order — Photos (camera or file picker, `compressImage` run at *pick* time so the wizard holds upload-ready blobs, max 3, remove/re-pick) → Location (`MapView`'s existing Phase 3 `pick-location` mode + its locate-me control, 800 ms-debounced Nominatim reverse geocode filling an editable area-name field) → Details (title/description/severity + category from `GET /categories`, per-field errors) → Review (runs `GET /reports/nearby-duplicates` on open, shows matches with distance + upvote count as an advisory warning linking to each, never a block). Submit signs uploads (`POST /uploads/sign`), PUTs each blob straight to Supabase Storage, then `POST /reports` and redirects to the new report's detail page. Photos upload only on submit, so an abandoned wizard leaves nothing orphaned in Storage (D34). `lib/api.js` `authPaths` extended with `uploadSign`, `reports`, `nearbyDuplicates`. Verified with `next build` (same font-stub method); `/report/new` compiles and prerenders with no errors
 
+- [x] Phase 7 Admin Panel — server (`server/sql/005_phase7.sql` + `reportService.js`/`commentService.js` admin functions + new `departmentService.js` + `statsService.js` admin functions + `adminValidators.js` + `adminReportsController.js`/`adminStatsController.js`/`adminDepartmentsController.js` + `commentsController.js`'s `deleteAdminComment` + a rewritten `routes/admin.js`) and client (`app/(admin)/admin/{page,reports/page,reports/[id]/page,heatmap/page,departments/page}.jsx` + `components/admin/*`). Server: `GET /admin/reports` (status/category/department filters, sort by newest/upvotes/severity), `PATCH .../status` (note required when rejecting, becomes `reports.reject_reason`), `PATCH .../assign`, `POST .../resolution-image` (same signed-upload contract as the citizen wizard, attached as `kind: 'after'`), `DELETE` on both reports and comments (cascades via `001_schema.sql`'s FKs), `GET /admin/stats` (KPIs + category/status/department breakdowns + a 7-day trend, all via new RPCs in `005_phase7.sql`), `GET /admin/heatmap` (existing but previously-unused `get_heatmap_points()` from Phase 2), and departments CRUD (no hard delete — `is_active` toggle only, since `reports.department_id` references it). Removed the Phase 4 `/admin/ping` placeholder now that real admin routes exist. Client: dashboard (`StatCard`/`ChartCard` + Chart.js donuts for category/status + a Chart.js trend line + a plain-divs department bar list — kept off Chart.js since it's just proportional widths against one max), reports table (sticky header, horizontal-scroll on mobile per design.md §12, filters as a `Select` row, reused `Pagination`), manage page (reuses `PhotoGallery`/`StatusTimeline` from Phase 6, new `AssignDepartmentForm`/`StatusChangeForm`/`ResolutionImageUpload`/`AdminCommentsModeration`/`DeleteReportButton` with a confirm `Modal`), heatmap (`MapView` gained a third `heat` mode via a new `HeatLayer` using `leaflet.heat`'s imperative `L.heatLayer`, gradient teal→amber→red per design.md §9), departments (list/create/activate-toggle, no delete). `Sidebar.jsx` nav rewritten to the routes architecture.md actually defines (D37 — the mockup's Assign Task/Submissions/Incomplete/Analytics have no matching route in any doc). Verified: server boots against a fake Supabase/Clerk project and every `/admin/*` route correctly 401s with no/garbage token; `next build` passes clean, 15/15 routes, admin pages compile as dynamic routes
+
 - [x] Phase 6 `/reports/[id]` (`app/reports/[id]/page.jsx` + `components/report/{PhotoGallery,UpvoteButton,CommentsSection}.jsx`): photo gallery (before photos first, admin "after fix" photo last and badged), title/status/meta header, description, reject reason (only when `status === 'rejected'`), a 4-cell facts grid (category, severity, department, reported), status timeline (reuses the Phase 3 `StatusTimeline`), optimistic upvote, comment thread with post + delete-own, and a 240px single-marker `DynamicMapView` for location. The page fetches through `useApi().request` rather than the plain `getReportById` helper and waits for Clerk's `isLoaded` — `GET /reports/:id` is public, but a token makes the server return `viewerHasUpvoted`, without which a signed-in user would see an un-upvoted button until they clicked (see D33). `lib/api.js` gained an `authPaths` map (report detail/upvote/comments/comment) so token-bearing endpoint paths are still declared in one file while `api.js` stays Clerk-free (D18). Guests aren't shown disabled controls: upvote and comment both route to `/sign-in?redirect_url=<current path>`. Verified with `next build` (same font-stub method as `/map` and `/reports`); `/reports/[id]` compiles as a dynamic route with no errors
 
 - [x] Fixed a server-wide bug: every service (`reportService`, `profileService`, `statsService`, `uploadService`, `categoryService`, `notificationService`, `commentService` — 21 call sites) threw a bare `AppError('INTERNAL_ERROR', ...)` on a Supabase error without logging the Supabase error itself, so any real failure (missing migration, bad `SUPABASE_URL`/key, RLS denial, unreachable project) showed up in the server log as only its own generic message (e.g. "Could not load reports") with no way to diagnose it — this is what the user hit testing `/reports` locally. Added `server/src/utils/dbError.js` (`dbError(context, error, clientMessage)`): logs the real `message`/`code`/`details`/`hint` via `logger.error`, then returns the same generic `AppError` to throw — client response is unchanged (rules.md §10, no raw errors to clients), only the server log gained the missing detail. Verified by booting the server against an unreachable fake `SUPABASE_URL` and hitting `/api/v1/categories`: the log now shows `"Supabase error in listCategories"` with the real DNS/fetch failure right before the generic error, where previously nothing but the generic message would have appeared
 
 ## Currently Working On
-- Every Phase 6 page is built (see Completed). What's left in Phase 6 is the polish pass, which needs a browser and live data
-- Still open underneath: Phase 5 sign-off (create the Supabase project and run the SQL — nothing here can be tested against real data until then) and Phase 4's outstanding Clerk account setup
+- Phase 7 is code-complete (see Completed) — server + all admin pages. What's left across Phases 5-7 is the same thing: a real Supabase project and Clerk app to test any of it against
+- Still open underneath: Phase 5 sign-off (create the Supabase project and run the SQL) and Phase 4's outstanding Clerk account setup
 
 ## Files Currently Being Modified
 - None
@@ -69,7 +71,7 @@ Set up the real infrastructure so Phase 6 can actually be tested, then run Phase
 - [ ] Verify `next build` succeeds where Google Fonts are reachable (this dev sandbox blocks `fonts.googleapis.com`, so `next/font/google` could not be build-verified here; code is unchanged from the documented approach)
 - [ ] Create GitHub repo `civic-fix` and push
 - [ ] Create Supabase project (Phase 1 step, needed now); enable `postgis` and `pgcrypto`
-- [ ] Run the three SQL files, upload seed images, run sanity checks (Phase 2)
+- [ ] Run all five SQL files (`001`-`005`), upload seed images, run `sanity_checks.sql` (now 18 checks, Phases 2/5/7)
 - [ ] Deploy client to Vercel (root `client`) and server to Render (root `server`)
 - [ ] Set up uptime pinger for `/health`
 - [ ] Confirm the demo city (seed assumes Nagpur; coordinates are in `003_seed.sql`)
@@ -122,9 +124,11 @@ Set up the real infrastructure so Phase 6 can actually be tested, then run Phase
 | 34 | The wizard uploads photos only at submit, not at the photo step: an abandoned wizard then leaves no orphaned objects in Storage (nothing deletes them — there's no cleanup job), at the cost of a slightly longer submit | 2026-09-20 |
 | 35 | Wizard step order follows phases.md (Photos → Location → Details → Review), which differs from the uploaded UI mockup's Details → Location → Photos → Review. phases.md is the source of truth (rules.md §0); the duplicate check also needs both location *and* category, so it lands naturally on the Review step either way. Flag for the team if the mockup order is preferred | 2026-09-20 |
 | 36 | `/my-reports` ships without the mockup's All/Open/Resolved tabs: `GET /me/reports` has no `status` param, so tabs would filter one page client-side and hide matches on other pages. Adding the param is a small Phase 7-era change to `me.js` + `getMyReports` + architecture.md if the tabs are wanted | 2026-09-20 |
+| 37 | Admin `Sidebar.jsx` nav rewritten to match architecture.md's actual folder tree (Dashboard/Reports/Heatmap/Departments) instead of the uploaded mockup's Assign Task/Submissions/Incomplete/Analytics, which have no route anywhere in the docs. Same reasoning as D35 — docs are the source of truth (rules.md §0); flag for the team if those extra pages are wanted | 2026-09-20 |
+| 38 | Admin departments have no hard delete, only an `is_active` toggle — `reports.department_id` is a FK to `departments.id`, so deleting one would either cascade-orphan every report assigned to it or be blocked outright. Deactivating removes it from the assign dropdown while keeping past assignments intact | 2026-09-20 |
 
 ## Dependency Log
-- Approved for later phases (client): `chart.js` + `react-chartjs-2` (Phase 7/8)
+- Installed in Phase 7 (client): `chart.js` ^4.4, `react-chartjs-2` ^5.2
 - Installed in Phase 4 (client): `@clerk/nextjs` ^6.39 · (server): `@clerk/express` ^1.7
 - Installed in Phase 3 (client): `leaflet`, `react-leaflet` v5, `leaflet.heat`, `lucide-react` — `lucide-react` was missing from rules.md's approved list even though design.md §7 mandates Lucide icons; added it to rules.md to resolve the conflict before installing
 - Installed in Phase 5 (server): `@supabase/supabase-js` ^2.47, `express-rate-limit` ^7.5
@@ -137,6 +141,7 @@ Set up the real infrastructure so Phase 6 can actually be tested, then run Phase
 - Departments: Roads, Sanitation, Electricity, Water Supply, Drainage.
 
 ## Recent Changes
+- 2026-09-20: Phase 7 Admin Panel built end to end, server + client (see Completed). Docs updated: phases.md ticks all Phase 7 tasks except the live-verification one, memory.md D37/D38, phase progress table, dependency log (chart.js/react-chartjs-2 now installed).
 - 2026-09-20: Phase 6 `/my-reports` + `/notifications` built and the navbar bell confirmed wired (see Completed). Docs updated: phases.md ticks both tasks, memory.md D36, phase progress table. Phase 6's build work is now complete; only the polish pass remains.
 - 2026-09-20: Phase 6 `/report/new` wizard built (see Completed). New `components/report/wizard/*`, `lib/utils/uploadReportImages.js`. Docs updated: phases.md ticks the wizard + reverse-geocode tasks, memory.md D34/D35, phase progress table.
 - 2026-09-20: Phase 6 `/reports/[id]` built (see Completed). New `components/report/{PhotoGallery,UpvoteButton,CommentsSection}.jsx`, new `authPaths` in `lib/api.js`. Docs updated: phases.md ticks "`/reports/[id]` detail…", memory.md D33, phase progress table.
@@ -154,12 +159,12 @@ Set up the real infrastructure so Phase 6 can actually be tested, then run Phase
 - 2026-09-20: Phase 3 UI kit, layouts (Navbar/Footer/Sidebar), MapView/DynamicMapView, ReportCard, and a temporary `/style-guide` page built; root layout now renders ToastProvider/Navbar/Footer; added `lucide-react` to rules.md's approved deps and installed leaflet/react-leaflet/leaflet.heat/lucide-react. `npm run build` could not be fully verified in this sandbox because `next/font/google` needs `fonts.googleapis.com`, which this environment's egress allowlist blocks — untested on a network that can reach Google Fonts.
 
 ## Notes for Later Phases
-- Phase 4/7: `change_report_status` needs the admin's row in `profiles` (FK on `status_history.changed_by`), so the API must upsert the admin profile before calling it.
+- ~~Phase 4/7: `change_report_status` needs the admin's row in `profiles`~~ — done: `adminReportsController.patchReportStatus`/`postResolutionImage` both call `ensureProfile(userId)` before their RPC.
 - Phase 5: report list/detail endpoints need `lat`/`lng`; decide between PostgREST computed columns and an RPC, and document it in `database.md` §8 first.
 - Phase 6: `ReportCard` must handle a missing image (seed photos only exist after the upload step).
 
 ## Next Task
-Phase 6 has no build work left — every page is written. The blocking work is now infrastructure, and it can't be done from here: create the Supabase project, run `001`-`004` + sanity checks, upload the seed images, create the Clerk app with the customized session token, and set one user to admin. Once that's live: walk the full citizen journey in a browser (PRD §11) to finish Phase 6's polish task, then start Phase 7 (admin panel). In parallel, the still-outstanding infrastructure step remains: create the Supabase project and run `001_schema.sql` → `002_functions.sql` → `003_seed.sql` → `004_phase5.sql` + `sanity_checks.sql`, upload seed images, and finish the outstanding Phase 4 Clerk setup — everything built in Phase 5/6 so far is code-complete but untested against real data.
+Phases 5, 6 and 7 all have zero build work left — every route and page is written. The only remaining blocker is infrastructure, and it can't be done from here: create the Supabase project (enable `postgis`+`pgcrypto`), run `001_schema.sql` → `002_functions.sql` → `003_seed.sql` → `004_phase5.sql` → `005_phase7.sql` + `sanity_checks.sql` (18 checks), upload the seed images, create the Clerk app with the customized session token (`Sessions → Customize session token` = `{ "metadata": "{{user.public_metadata}}" }`), and set one user's `publicMetadata` to `{ "role": "admin" }`. Once that's live: walk the full citizen journey (PRD §11) to close Phase 6's polish task, then the full admin journey (assign → status change → resolution photo → citizen sees the update + notification) to close Phase 7's last checklist item. After that, start Phase 8 (AI + City Health) — first decide the AI provider (Claude vs Gemini) and get an API key, per the still-open item in Assumptions.
 
 ## Deployment Status
 | Item | Status | URL |
@@ -184,7 +189,7 @@ Phase 6 has no build work left — every page is written. The blocking work is n
 | 4 Auth & roles | Code done; Clerk account + live token tests pending |
 | 5 Reports API | Code done; Supabase project + real SQL run pending |
 | 6 Citizen frontend | All pages built (landing, `/map`, `/reports`, `/reports/[id]`, `/report/new`, `/my-reports`, `/notifications`); browser polish pass pending, blocked on live data |
-| 7 Admin panel | Not started |
+| 7 Admin panel | Code done (dashboard, reports table, report manage, heatmap, departments); Supabase project + real data + browser verification pending |
 | 8 AI + City Health | Not started |
 | 9 Testing & polish | Not started |
 | 10 Deployment & demo | Not started |

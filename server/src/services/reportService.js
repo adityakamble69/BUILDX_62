@@ -115,10 +115,15 @@ export async function findNearbyDuplicates({ lat, lng, category, radius }) {
 
 /**
  * @param {string} reporterId Clerk userId (caller must have called ensureProfile first).
- * @param {{ title, description, category, severity, lat, lng, areaName, imagePaths }} input
+ * @param {{ title, description, category, severity, lat, lng, areaName, imagePaths, aiCategory?, aiSeverity? }} input
+ *   `aiCategory`/`aiSeverity` (Phase 8) are what `POST /ai/classify` suggested, stored as
+ *   audit fields — they never replace the citizen's own `category`/`severity` above.
  */
 export async function createReport(reporterId, input) {
   const categoryId = await getCategoryIdBySlug(input.category);
+  // A second, independent slug->id lookup: the AI suggestion is a different category from
+  // the one actually filed whenever the citizen overrode it, so it can't reuse `categoryId`.
+  const aiCategoryId = input.aiCategory ? await getCategoryIdBySlug(input.aiCategory) : null;
 
   const { data, error } = await supabase.rpc('create_report', {
     p_reporter_id: reporterId,
@@ -130,6 +135,8 @@ export async function createReport(reporterId, input) {
     p_lng: input.lng,
     p_area_name: input.areaName ?? null,
     p_image_paths: input.imagePaths,
+    p_ai_category_id: aiCategoryId,
+    p_ai_severity: input.aiSeverity ?? null,
   });
   if (error) throw dbError('createReport', error, 'Could not create the report');
 
@@ -192,7 +199,8 @@ export async function listReportsAdmin(filters) {
     query = query.eq('category_id', categoryId);
   }
 
-  query = query.order(filters.sort === 'upvotes' ? 'upvote_count' : 'created_at', { ascending: false });
+  const sortColumn = { upvotes: 'upvote_count', severity: 'severity' }[filters.sort] ?? 'created_at';
+  query = query.order(sortColumn, { ascending: false });
 
   const { from, to } = toRange(filters);
   const { data, error, count } = await query.range(from, to);

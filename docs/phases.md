@@ -142,13 +142,13 @@
 ## Phase 7 — Admin Panel  (L)
 **Objective:** The admin can run the full resolution workflow and see analytics.
 **Tasks**
-- [ ] Server: `/admin/reports`, status change (RPC), assign, resolution image, deletes, `/admin/stats`, `/admin/heatmap`, departments CRUD
-- [ ] `/admin` dashboard: KPI cards + Chart.js charts (by category, by status, trend)
-- [ ] `/admin/reports` table with filters and sorting by upvotes/severity
-- [ ] `/admin/reports/[id]`: assign department, change status with note, upload after photo
-- [ ] `/admin/heatmap` (Leaflet heat layer)
-- [ ] `/admin/departments`
-- [ ] Notification created on each status change (verify from citizen account)
+- [x] Server: `/admin/reports`, status change (RPC), assign, resolution image, deletes, `/admin/stats`, `/admin/heatmap`, departments CRUD
+- [x] `/admin` dashboard: KPI cards + Chart.js charts (by category, by status, trend)
+- [x] `/admin/reports` table with filters and sorting by upvotes/severity
+- [x] `/admin/reports/[id]`: assign department, change status with note, upload after photo
+- [x] `/admin/heatmap` (Leaflet heat layer)
+- [x] `/admin/departments`
+- [ ] Notification created on each status change (verify from citizen account) — wired (change_report_status always inserts one, sql/002_functions.sql), can't be *verified* against a real inbox until Supabase + Clerk are live
 **Files:** `server/src/**` admin routes/services, `client/src/app/(admin)/**`
 **Dependencies:** Phases 5, 6
 **Expected result:** Admin resolves a report and the citizen sees the update and notification.

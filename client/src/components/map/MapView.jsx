@@ -2,6 +2,7 @@
 
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import 'leaflet.heat'; // side-effect only: attaches L.heatLayer, used by the `heat` mode below
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { useEffect, useState } from 'react';
 import { LocateFixed } from 'lucide-react';
@@ -85,6 +86,30 @@ function LocationPicker({ value, onChange }) {
   );
 }
 
+/**
+ * Imperative `L.heatLayer` wrapper — leaflet.heat has no react-leaflet binding, so this
+ * mounts it directly on the map instance and tears it down on unmount/prop change.
+ * design.md §9: "teal → amber → red (low → high density)."
+ */
+function HeatLayer({ points }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!points || points.length === 0) return undefined;
+
+    const layer = L.heatLayer(
+      points.map((p) => [p.lat, p.lng, Math.max(0.3, p.severity / 5)]),
+      { radius: 28, blur: 20, maxZoom: 17, gradient: { 0.3: '#0F766E', 0.65: '#F59E0B', 1: '#DC2626' } },
+    ).addTo(map);
+
+    return () => {
+      map.removeLayer(layer);
+    };
+  }, [map, points]);
+
+  return null;
+}
+
 /** Floating "use my location" button, only rendered in `pick-location` mode. */
 function LocateMeControl({ onLocate }) {
   const map = useMap();
@@ -124,9 +149,10 @@ function LocateMeControl({ onLocate }) {
 }
 
 /**
- * Two modes (architecture.md §5): `browse` (default) shows status-colored report markers
+ * Three modes (architecture.md §5): `browse` (default) shows status-colored report markers
  * with popups; `pick-location` shows a single draggable pin plus a locate-me control, for
- * the report form's location step. (`heat` is a future admin-panel mode, Phase 7.)
+ * the report form's location step; `heat` renders a density heatmap (Phase 7 admin panel)
+ * instead of markers.
  *
  * @param {{
  *  reports?: Array<{
@@ -134,17 +160,19 @@ function LocateMeControl({ onLocate }) {
  *    categoryLabel?: string, areaName?: string, upvoteCount?: number,
  *    thumbnailUrl?: string, createdAt?: string,
  *  }>,
+ *  heatPoints?: Array<{ lat: number, lng: number, severity: number }>, // heat mode only
  *  center?: [number, number],
  *  zoom?: number,
  *  onMarkerClick?: (reportId: string) => void, // browse mode: fired by the popup's "View details" link, not the marker itself
  *  className?: string,
- *  mode?: 'browse' | 'pick-location',
+ *  mode?: 'browse' | 'pick-location' | 'heat',
  *  value?: { lat: number, lng: number } | null, // pick-location mode only
  *  onChange?: (lat: number, lng: number) => void, // pick-location mode only
  * }} props
  */
 export default function MapView({
   reports = [],
+  heatPoints = [],
   center,
   zoom,
   onMarkerClick,
@@ -154,6 +182,7 @@ export default function MapView({
   onChange,
 }) {
   const isPicker = mode === 'pick-location';
+  const isHeat = mode === 'heat';
 
   return (
     <div className={`relative overflow-hidden rounded-lg border border-border ${className}`}>
@@ -169,7 +198,9 @@ export default function MapView({
         />
         <FlyToCenter center={center} zoom={zoom} />
 
-        {isPicker ? (
+        {isHeat ? (
+          <HeatLayer points={heatPoints} />
+        ) : isPicker ? (
           <LocationPicker value={value} onChange={onChange} />
         ) : (
           reports.map((report) => (

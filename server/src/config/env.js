@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { logger } from '../utils/logger.js';
 
 // Variables are added here in the phase that first uses them, so startup fails fast.
-// Phase 1: NODE_ENV/PORT/CLIENT_ORIGIN. Phase 4: Clerk. Phase 5: Supabase. AI keys follow later.
+// Phase 1: NODE_ENV/PORT/CLIENT_ORIGIN. Phase 4: Clerk. Phase 5: Supabase. Phase 8: AI.
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
@@ -12,6 +12,15 @@ const schema = z.object({
   CLERK_SECRET_KEY: z.string().min(1, 'CLERK_SECRET_KEY is required'),
   SUPABASE_URL: z.string().url('SUPABASE_URL is required'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+  // Feature-flagged (PRD §16/architecture.md §13): AI_API_KEY is only required when the
+  // flag is on, so it stays optional here and aiService checks both before calling out.
+  AI_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true')
+    .pipe(z.boolean()),
+  AI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().default('claude-haiku-4-5-20251001'),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -24,6 +33,12 @@ if (!parsed.success) {
 // In production the real client URL must be set explicitly, otherwise CORS would silently block it.
 if (parsed.data.NODE_ENV === 'production' && !process.env.CLIENT_ORIGIN) {
   logger.error('CLIENT_ORIGIN is required in production');
+  process.exit(1);
+}
+
+// AI_ENABLED=true with no key would fail on every request instead of at boot — catch it here.
+if (parsed.data.AI_ENABLED && !parsed.data.AI_API_KEY) {
+  logger.error('AI_ENABLED is true but AI_API_KEY is missing');
   process.exit(1);
 }
 

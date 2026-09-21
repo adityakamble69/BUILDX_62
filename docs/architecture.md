@@ -163,10 +163,9 @@ Users are identified by Clerk `userId` (string like `user_2abc...`). It is store
 | PATCH | `/api/v1/me/notifications/read` | Mark all/one as read |
 | POST | `/api/v1/ai/classify` | Optional AI category/severity suggestion |
 
-**Admin (auth + admin)**
+**Admin (auth + admin)** — all implemented in Phase 7; `GET /admin/reports` additionally takes `?category=&status=&department=&sort=newest|upvotes|severity&page=&pageSize=`
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/v1/admin/ping` | Role smoke test: 200 admin, 403 citizen (Phase 4; remove after Phase 7) |
 | GET | `/api/v1/admin/reports` | Full table with filters |
 | PATCH | `/api/v1/admin/reports/:id/status` | Change status + note |
 | PATCH | `/api/v1/admin/reports/:id/assign` | Assign department |

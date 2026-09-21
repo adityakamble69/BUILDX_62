@@ -45,6 +45,21 @@ export const createCommentRateLimit = rateLimit({
   handler: limitHandler,
 });
 
+/**
+ * POST /ai/classify — 20 per hour per user. An LLM call is the most expensive thing this
+ * API does per-request, so it gets its own (stricter than the global 120/min, more
+ * generous than create-report's 10/hr since a citizen may re-roll the suggestion while
+ * still editing the form) limit, per rules.md §7's "stricter on ... /ai/classify".
+ */
+export const aiClassifyRateLimit = rateLimit({
+  windowMs: 60 * 60_000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator,
+  handler: limitHandler,
+});
+
 // Re-exported so routes only need one import for the "wrap async controllers" rule
 // when a route has no other middleware to sit next to.
 export { asyncHandler };

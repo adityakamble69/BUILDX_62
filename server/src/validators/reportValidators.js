@@ -39,4 +39,10 @@ export const reportCreateSchema = z.object({
   areaName: z.string().trim().max(200).optional(),
   // Storage paths returned by POST /uploads/sign, in the order they should be attached.
   imagePaths: z.array(z.string().trim().min(1)).min(1).max(3),
+  // Phase 8: what POST /ai/classify suggested, if the wizard called it and the user hadn't
+  // already dismissed/overridden the suggestion before submitting. Audit only — stored
+  // alongside the citizen's actual `category`/`severity`, never overrides them
+  // (database.md §4: `reports.ai_category_id`/`ai_severity`).
+  aiCategory: z.string().trim().min(1).optional(), // category slug
+  aiSeverity: z.coerce.number().int().min(1).max(5).optional(),
 });

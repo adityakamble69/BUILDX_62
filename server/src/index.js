@@ -26,7 +26,11 @@ app.use(
     allowedHeaders: ['Authorization', 'Content-Type'],
   }),
 );
-app.use(express.json({ limit: '100kb' }));
+// 2mb (not the original 100kb) because Phase 8's POST /ai/classify sends one compressed
+// photo as base64 in the JSON body (PhotoStep already caps the source blob at ~1MB before
+// this, so base64 + the rest of the payload comfortably fits). Every other route's body
+// is tiny text, so this only widens the ceiling, not the day-to-day payloads.
+app.use(express.json({ limit: '2mb' }));
 
 // Verifies the Bearer token when one is present and populates the auth context.
 // It never rejects on its own; requireAuth/requireAdmin decide that per route.
