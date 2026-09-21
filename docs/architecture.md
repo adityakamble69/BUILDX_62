@@ -20,22 +20,16 @@
 ## 2. Overall Architecture
 
 ```
-            ┌──────────────┐
-  User ───► │   Next.js    │  (Vercel)
-            │  frontend    │
-            └──────┬───────┘
-                   │ HTTPS + Clerk session token (Bearer)
-                   ▼
-            ┌──────────────┐        ┌───────────────┐
-            │ Express API  │ ─────► │ Clerk (verify │
-            │  (Render)    │ ◄───── │  token/claims)│
-            └──────┬───────┘        └───────────────┘
-                   │ service-role key (server only)
-        ┌──────────┼─────────────────┐
-        ▼          ▼                 ▼
-  Supabase      Supabase         LLM API
-  Postgres      Storage          (optional)
-  + PostGIS     (images)
+User ───► Next.js (Vercel) frontend
+              │  HTTPS + Clerk session token (Bearer)
+              ▼
+        Express API (Render) ─────► Clerk (verify token/claims)
+              │  service-role key (server only)
+      ┌───────┼──────────────┐
+      ▼       ▼              ▼
+  Supabase  Supabase       LLM API
+  Postgres  Storage        (optional)
+  PostGIS   (images)
 ```
 
 Key principle: **the frontend never talks to the database directly.** All data access goes through Express. Images are uploaded straight to Supabase Storage using short-lived signed upload URLs issued by Express.
@@ -50,17 +44,27 @@ Key principle: **the frontend never talks to the database directly.** All data a
 ## 4. User Flow
 
 ```
-Guest ─► Map/Feed/Detail/City Health
-   │
-   └─► Sign in (Clerk) ─► Citizen
-                            ├─► Report new issue ─► Duplicate check ─► Submit
-                            ├─► Upvote / Comment
-                            └─► My Reports / Notifications
+Guest ─► Map / Feed / Detail / City Health
+    │
+    └─► Sign in (Clerk) ─► Citizen
+            ├─► Report new issue ─► Duplicate check ─► Submit
+            ├─► Upvote / Comment
+            └─► My Reports / Notifications
 
-Admin ─► /admin ─► Reports table ─► Report manage page
-                                       ├─► Assign department
-                                       ├─► Change status (+ note)
-                                       └─► Upload after photo ─► Notify reporter
+Worker ─► /worker/tasks ─► See assigned tasks ─► Submit resolution photo + details
+              │
+              ▼
+        Admin reviews (Approve / Request changes)
+
+Admin ─► /admin ─► Dashboard / Reports / Assign Task / Submissions / Incomplete / Analytics
+    ├─► Reports table ─► Report manage page
+    │     ├─► Assign department
+    │     ├─► Change status (+ note)
+    │     └─► Upload after photo
+    ├─► Assign Task ─► pick report + department + worker + due date
+    ├─► Submissions ─► review modal ─► Approve (closes loop) / Request changes
+    ├─► Incomplete ─► aging view of open reports
+    └─► Analytics ─► KPIs + department performance + heatmap
 ```
 
 ## 5. Frontend Architecture (Next.js)
@@ -69,34 +73,46 @@ Admin ─► /admin ─► Reports table ─► Report manage page
 - **Routing:** file-based under `client/src/app` (`page.jsx`, `layout.jsx`).
 - **Layouts:**
   - `app/layout.jsx` (root): `<ClerkProvider>`, toast host, fonts via `next/font/google`, and `<SiteChrome>`.
-  - `SiteChrome` (client) renders the public navbar/footer and returns children untouched on `/admin`, so the admin shell is not double-framed. This avoids splitting every public page into a second route group.
-  - `app/(admin)/admin/layout.jsx`: admin shell with sidebar + server-side role guard (`auth()` → redirect).
-- **Auth:** `@clerk/nextjs` (added in Phase 4). `src/middleware.js` uses `clerkMiddleware` to redirect unauthenticated users away from citizen pages and non-admins away from `/admin` (reads `sessionClaims.metadata.role`). Client components call `useApi()` (`lib/useApi.js`), which reads `useAuth().getToken()` and passes the token to `lib/api.js`; `api.js` itself stays Clerk-free.
+  - `SiteChrome` (client) renders the public navbar/footer and returns children untouched on `/admin`, so the admin shell is not double-framed.
+  - `app/(admin)/admin/layout.jsx`: admin shell with `Sidebar` + `AdminTopbar` + server-side role guard (`auth()` → redirect).
+- **Auth:** `@clerk/nextjs`. `src/middleware.js` uses `clerkMiddleware` for three route classes:
+  - Citizen routes (`/report/new`, `/my-reports`, `/notifications`) — any signed-in user (guest redirects to sign-in).
+  - Worker routes (`/worker(.*)`) — redirect to `/` unless `sessionClaims.metadata.role === "worker"`.
+  - Admin routes (`/admin(.*)`) — redirect to `/` unless role is `"admin"`.
+  Client components call `useApi()` (`lib/useApi.js`), which reads `useAuth().getToken()` and passes the token to `lib/api.js`; `api.js` itself stays Clerk-free.
 - **Single data source:** Next.js code never imports Supabase and never touches the database. The only data source is the Express API.
-- **Server vs client components:** default to server components for static shells; add `'use client'` only when a component needs state, effects, or browser APIs (maps, forms, upvote, comments). Public data pages (map, feed, City Health) fetch on the client with skeleton loaders, because a sleeping Render instance would otherwise hang the whole server render. If a page does fetch on the server, it must use a short timeout and `revalidate`.
-- **State:** React Context + hooks in `lib/context/` for current user, filters, and notification count. No global state library.
-- **Maps and charts:** `<MapView>` uses `react-leaflet` (modes: `browse`, `pick-location`, `heat`; heat via `leaflet.heat`); charts use `react-chartjs-2`. Both are loaded with `next/dynamic` (`ssr: false`) because they need `window`.
+- **Server vs client components:** default to server components for static shells; add `'use client'` only when a component needs state, effects, or browser APIs (maps, forms, upvote, comments). Public data pages fetch on the client with skeleton loaders.
+- **State:** React Context + hooks in `lib/context/` for current user, filters, and notification count.
+- **Maps and charts:** `<MapView>` uses `react-leaflet` (modes: `browse`, `pick-location`, `heat`); charts use `react-chartjs-2`. Both loaded with `next/dynamic` (`ssr: false`).
 - **Images and fonts:** `next/image` with the Supabase Storage host in `images.remotePatterns`; Space Grotesk and DM Sans via `next/font/google`.
 - **Styling:** Tailwind 3.4 with tokens from `design.md`.
+- **Role-aware Navbar:** `Navbar.jsx` reads Clerk `publicMetadata.role` and renders four variants:
+  - **Guest:** `Sign In` (secondary) + `Report an Issue` (primary).
+  - **Citizen:** `Report an Issue` (primary) only.
+  - **Worker:** `My Tasks` (primary, teal with icon) — no `Report an Issue` in the desktop topbar (kept in the mobile drawer).
+  - **Admin:** `Admin Panel` (primary, teal with shield icon) — no `Report an Issue` in the desktop topbar (kept in the mobile drawer).
+- **Admin topbar:** `AdminTopbar` (client) is a sticky header above `main` in `(admin)/admin/layout.jsx`, separate from `Sidebar`. Its search routes to `/admin/reports?search=` — the only admin surface with server-side search. All action buttons carry `suppressHydrationWarning` (browser-extension false positive, memory.md D32/D44).
+- **Worker routes:** `/worker/tasks` is guarded by `middleware.js` (redirect to `/` if role is not `worker`). The page fetches `/me/tasks` (worker-scoped server-side); its tabs are client-side visual filters over the already-scoped list.
 
 ## 6. Backend Architecture (Express)
 
 Layered structure, one responsibility per layer:
 
 ```
-routes  →  controllers  →  services  →  supabase client
+routes → controllers → services → supabase client
               ↑
-          middleware (auth, role, validate, error)
+      middleware (auth, role, validate, error)
 ```
 
 - **routes:** URL + middleware wiring only.
 - **controllers:** parse request, call service, shape response.
 - **services:** business logic and DB queries (the only layer that imports the Supabase client).
-- **middleware:** `clerkMiddleware`, `requireAuth`, `requireAdmin`, `validate(schema)`, `errorHandler`, `rateLimit`.
+- **middleware:** `clerkMiddleware`, `requireAuth`, `requireAdmin`, `requireWorker`, `validate(schema)`, `errorHandler`, `rateLimit`.
 - **validation:** Zod schemas per endpoint.
 
 ## 7. Database Architecture
-See `database.md`. Summary: Postgres on Supabase with PostGIS; `reports` is the central table; `upvotes`, `comments`, `report_images`, `status_history`, `notifications` hang off it; `categories` and `departments` are lookup tables.
+
+See `database.md`. Summary: Postgres on Supabase with PostGIS; `reports` is the central table; `upvotes`, `comments`, `report_images`, `status_history`, `notifications` hang off it; `categories` and `departments` are lookup tables; `tasks` and `submissions` (Phase 7.5) close the resolution loop.
 
 ## 8. Authentication Flow
 
@@ -106,12 +122,15 @@ Browser ──API call + Bearer token──► Express
 Express ──clerkMiddleware verifies token──► req.auth (userId, sessionClaims)
 Express ──requireAuth──► 401 if no valid session
 Express ──requireAdmin──► 403 if claims.metadata.role !== "admin"
+Express ──requireWorker──► 403 if claims.metadata.role !== "worker"
 ```
 
 Setup requirement (Clerk dashboard → Sessions → Customize session token):
+
 ```json
 { "metadata": "{{user.public_metadata}}" }
 ```
+
 Then the role is read as `sessionClaims.metadata.role`.
 
 ## 9. Authorization / Role System
@@ -119,12 +138,16 @@ Then the role is read as `sessionClaims.metadata.role`.
 | Check | Where enforced |
 |---|---|
 | Any public read | No auth |
-| Create report, upvote, comment | `requireAuth` |
-| Edit/delete own comment | `requireAuth` + ownership check in service |
-| Admin routes | `requireAdmin` |
-| UI hiding of admin links | Frontend (cosmetic only) |
+| Create report, upvote, comment | requireAuth |
+| Edit/delete own comment | requireAuth + ownership check in service |
+| Admin routes | requireAdmin |
+| Worker routes (`/me/tasks`, `/me/tasks/:id/submission`) | requireWorker |
+| Worker submission ownership | `worker_create_submission` RPC verifies `tasks.assigned_to_id = caller` |
+| UI hiding of role-specific links | Frontend (cosmetic only) |
 
-Users are identified by Clerk `userId` (string like `user_2abc...`). It is stored as `text` in DB tables.
+Users are identified by Clerk `userId` (string like `user_2abc...`). It is stored as text in DB tables.
+
+Role independence: `admin` and `worker` are independent Clerk roles. An admin is NOT automatically a worker — `requireWorker` rejects non-workers with 403, and vice versa. This keeps `/me/tasks` semantically unambiguous ("my assigned tasks" as a worker).
 
 ## 10. API Architecture
 
@@ -132,13 +155,14 @@ Users are identified by Clerk `userId` (string like `user_2abc...`). It is store
 - Format: JSON
 - Success: `{ "data": ..., "meta": { "page": 1, "pageSize": 20, "total": 134 } }` (meta only for lists)
 - Error: `{ "error": { "code": "VALIDATION_ERROR", "message": "…", "details": [...] } }`
-- Status codes: 200, 201, 400, 401, 403, 404, 409, 422, 429, 500
+- Status codes: 200, 201, 204, 400, 401, 403, 404, 409, 422, 429, 500
 - Pagination: `?page=1&pageSize=20`
 - Filtering: `?category=pothole&status=reported&sort=upvotes`
 
 ### Endpoint list
 
 **Public**
+
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Health check (no `/api/v1` prefix) |
@@ -149,11 +173,12 @@ Users are identified by Clerk `userId` (string like `user_2abc...`). It is store
 | GET | `/api/v1/stats/public` | City Health numbers |
 
 **Citizen (auth)**
+
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/v1/me` | Current user id + role (auth smoke test, Phase 4) |
+| GET | `/api/v1/me` | Current user id + role |
 | POST | `/api/v1/uploads/sign` | Get signed upload URL(s) for images |
-| GET | `/api/v1/reports/nearby-duplicates` | Duplicate check (`lat,lng,category`) |
+| GET | `/api/v1/reports/nearby-duplicates` | Duplicate check (lat,lng,category) |
 | POST | `/api/v1/reports` | Create report |
 | POST | `/api/v1/reports/:id/upvote` | Toggle upvote |
 | POST | `/api/v1/reports/:id/comments` | Add comment |
@@ -163,10 +188,18 @@ Users are identified by Clerk `userId` (string like `user_2abc...`). It is store
 | PATCH | `/api/v1/me/notifications/read` | Mark all/one as read |
 | POST | `/api/v1/ai/classify` | Optional AI category/severity suggestion |
 
-**Admin (auth + admin)** — all implemented in Phase 7; `GET /admin/reports` additionally takes `?category=&status=&department=&sort=newest|upvotes|severity&page=&pageSize=`
+**Worker (auth + worker role)**
+
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/v1/admin/reports` | Full table with filters |
+| GET | `/api/v1/me/tasks` | Worker's own assigned tasks |
+| POST | `/api/v1/me/tasks/:id/submission` | Worker submits resolution evidence |
+
+**Admin (auth + admin role) — Phase 7**
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/admin/reports` | Full table with filters (`?category=&status=&department=&search=&sort=&page=&pageSize=`) |
 | PATCH | `/api/v1/admin/reports/:id/status` | Change status + note |
 | PATCH | `/api/v1/admin/reports/:id/assign` | Assign department |
 | POST | `/api/v1/admin/reports/:id/resolution-image` | Attach after photo |
@@ -174,7 +207,22 @@ Users are identified by Clerk `userId` (string like `user_2abc...`). It is store
 | DELETE | `/api/v1/admin/comments/:id` | Delete any comment |
 | GET | `/api/v1/admin/stats` | Dashboard KPIs and charts data |
 | GET | `/api/v1/admin/heatmap` | Points for heatmap |
-| GET/POST/PATCH | `/api/v1/admin/departments` | Manage departments |
+| GET/POST | `/api/v1/admin/departments` | List/create departments |
+| PATCH | `/api/v1/admin/departments/:id` | Update department name / isActive |
+
+**Admin — Phase 7.5 (Assign Task / Submissions / Incomplete / Analytics)**
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/admin/tasks` | List tasks (filter by status/department/priority) |
+| POST | `/api/v1/admin/tasks` | Create task (optionally assign to worker) |
+| PATCH | `/api/v1/admin/tasks/:id/status` | Update task status |
+| GET | `/api/v1/admin/submissions` | List submissions (filter by status/search) |
+| POST | `/api/v1/admin/submissions` | Create submission (admin-side) |
+| PATCH | `/api/v1/admin/submissions/:id/review` | Approve / request changes (+ grade, remarks) |
+| GET | `/api/v1/admin/incomplete` | Open reports with days-pending aging |
+| GET | `/api/v1/admin/analytics` | KPIs + department performance + status distribution |
+| GET | `/api/v1/admin/workers` | List Clerk users with role = "worker" |
 
 ## 11. Data Flow — Create Report
 
@@ -195,17 +243,48 @@ Form ─► POST /uploads/sign ─► signed URL(s)
 
 ## 12. Data Flow — Resolve Report
 
+Two paths.
+
+**Direct** (admin on `/admin/reports/[id]`):
+
 ```
 Admin ─► PATCH /admin/reports/:id/status { status, note }
             │
             ▼
-       service.updateStatus (transaction / RPC)
+       change_report_status RPC
             ├─► update reports.status (+ resolved_at)
             ├─► insert status_history
             └─► insert notifications for reporter
 ```
 
+**Via worker submission** (Phase 7.5 + 7.6):
+
+```
+Admin ─► POST /admin/tasks { reportId, departmentId, assignedToId, ... }
+            │
+            ▼
+       create_task RPC ─► insert tasks + auto-assign report.department_id if unset
+
+Worker ─► POST /me/tasks/:id/submission { resolutionImagePath, details }
+            │
+            ▼
+       worker_create_submission RPC (verifies assignee)
+            ├─► insert submissions (status = pending_review)
+            └─► flip task status pending → in_progress
+
+Admin ─► PATCH /admin/submissions/:id/review { status: approved, grade, remarks }
+            │
+            ▼
+       review_submission RPC (one function, four writes)
+            ├─► update submissions (status, grade, remarks, reviewed_by/at)
+            ├─► update tasks.status → completed
+            ├─► insert report_images (kind='after', if image path present)
+            └─► change_report_status(report → resolved)
+                    └─► insert status_history + notifications for reporter
+```
+
 ## 13. External Services
+
 - **Clerk:** identity; needs `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` on Vercel (the secret key is server-side only, used by Next.js middleware) and `CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` on Render.
 - **Supabase:** `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the backend only.
 - **LLM API:** key on the backend only; feature-flagged with `AI_ENABLED`.
@@ -238,26 +317,40 @@ civic-fix/
 │   │   │   ├── notifications/page.jsx
 │   │   │   ├── sign-in/[[...sign-in]]/page.jsx
 │   │   │   ├── sign-up/[[...sign-up]]/page.jsx
-│   │   │   ├── auth-check/page.jsx          # temporary Phase 4 token test, delete before demo
-│   │   │   ├── style-guide/page.jsx         # temporary Phase 3 component gallery, delete before demo
+│   │   │   ├── worker/
+│   │   │   │   └── tasks/page.jsx            # worker dashboard
 │   │   │   └── (admin)/admin/
-│   │   │       ├── layout.jsx
-│   │   │       ├── page.jsx
+│   │   │       ├── layout.jsx                # Sidebar + AdminTopbar
+│   │   │       ├── page.jsx                  # dashboard
 │   │   │       ├── reports/page.jsx
 │   │   │       ├── reports/[id]/page.jsx
+│   │   │       ├── tasks/page.jsx            # Assign Task
+│   │   │       ├── submissions/page.jsx
+│   │   │       ├── incomplete/page.jsx
+│   │   │       ├── analytics/page.jsx
 │   │   │       ├── heatmap/page.jsx
 │   │   │       └── departments/page.jsx
 │   │   ├── components/
-│   │   │   ├── ui/              # Button, Card, Input, Badge, Modal, Toast, Skeleton
+│   │   │   ├── ui/              # Button, Card, Input, Badge, Modal, Toast, Skeleton, Pagination, EmptyState
 │   │   │   ├── layout/          # Navbar, Sidebar, Footer, SiteChrome, Logo
-│   │   │   ├── map/             # MapView, MarkerPopup, HeatLayer
-│   │   │   └── report/          # ReportCard, ReportForm, StatusTimeline, UpvoteButton, CommentList
+│   │   │   ├── map/             # MapView, DynamicMapView, MapReportListItem, MapFiltersPanel
+│   │   │   ├── report/          # ReportCard, PhotoGallery, StatusTimeline, UpvoteButton, CommentsSection, wizard/*
+│   │   │   ├── home/            # HeroSection, CategoryGrid, LatestReports
+│   │   │   ├── city-health/     # TopOpenReportsList, TopAreasList
+│   │   │   ├── admin/           # StatCard, ChartCard, AdminTopbar, AdminReportsTable,
+│   │   │   │                    # AssignDepartmentForm, StatusChangeForm, ResolutionImageUpload,
+│   │   │   │                    # DeleteReportButton, TaskForm, TaskTable, SubmissionTable,
+│   │   │   │                    # SubmissionReviewModal, IncompleteTable, DepartmentPerformanceTable,
+│   │   │   │                    # RecentReportsTable, TopCategoriesList, DepartmentBreakdownList,
+│   │   │   │                    # CategoryBreakdownChart, StatusBreakdownChart, ReportsTrendChart, chartSetup
+│   │   │   └── worker/          # WorkerTaskCard, WorkerSubmissionModal
 │   │   ├── lib/
-│   │   │   ├── api.js           # fetch wrapper (token passed in from Clerk)
+│   │   │   ├── api.js           # fetch wrapper + authPaths map (token passed in from Clerk)
 │   │   │   ├── useApi.js        # hook: apiFetch + current Clerk token
-│   │   │   ├── context/         # user, filters, notifications
-│   │   │   └── utils/           # formatters, constants
-│   │   └── middleware.js        # Clerk route protection (Phase 4)
+│   │   │   ├── context/         # ToastContext, NotificationContext
+│   │   │   └── utils/           # formatters, constants, layout, imageUrl, categories, severity,
+│   │   │                        # timeAgo, duration, cn, geocode, compressImage, uploadReportImages, blobToBase64
+│   │   └── middleware.js        # Clerk route protection (citizen / worker / admin)
 │   ├── public/
 │   ├── next.config.js
 │   ├── tailwind.config.js
@@ -269,17 +362,27 @@ civic-fix/
     ├── src/
     │   ├── index.js             # app bootstrap
     │   ├── config/              # env loader, supabase client, clerk setup
-    │   ├── middleware/          # auth (requireAuth/requireAdmin), validate, errorHandler, rateLimit
-    │   ├── routes/              # index.js, public.js, reports.js, comments.js, uploads.js, me.js, admin.js
-    │   ├── controllers/         # categoriesController, reportsController, commentsController, uploadsController, statsController, meController
-    │   ├── services/            # categoryService, reportService, commentService, uploadService, statsService, notificationService, profileService, aiService (Phase 8)
-    │   ├── validators/          # Zod schemas (reportValidators, commentValidators, uploadValidators, notificationValidators)
-    │   └── utils/               # AppError, asyncHandler, pagination
+    │   ├── middleware/          # auth (requireAuth/requireAdmin/requireWorker), validate, errorHandler, rateLimit
+    │   ├── routes/              # index.js, public.js, reports.js, comments.js, uploads.js, me.js, admin.js, ai.js
+    │   ├── controllers/         # categories, reports, comments, uploads, stats, me, ai,
+    │   │                        # adminReports, adminStats, adminDepartments,
+    │   │                        # adminTasks, adminSubmissions, adminAnalytics, workers
+    │   ├── services/            # categoryService, reportService, commentService, uploadService,
+    │   │                        # statsService, notificationService, profileService, aiService,
+    │   │                        # taskService, submissionService, analyticsService, workerService
+    │   ├── validators/          # Zod schemas (reportValidators, commentValidators, uploadValidators,
+    │   │                        # notificationValidators, adminValidators, meValidators, aiValidators)
+    │   └── utils/               # AppError, asyncHandler, pagination, dbError, logger
     ├── sql/
     │   ├── 001_schema.sql        # tables, indexes, triggers, RLS, storage bucket
     │   ├── 002_functions.sql     # duplicates, status change, stats/map/heatmap RPCs
     │   ├── 003_seed.sql          # demo data
     │   ├── 004_phase5.sql        # reports_with_coords view, upsert_profile, create_report, toggle_upvote
+    │   ├── 005_phase7.sql        # admin_reports_view, assign/delete/resolution RPCs, admin stats
+    │   ├── 006_phase8.sql        # get_top_open_reports
+    │   ├── 007_tasks_submissions.sql  # tasks + submissions tables + 8 RPCs
+    │   ├── 008_seed_tasks.sql    # demo tasks + submissions
+    │   ├── 009_worker_role.sql   # tasks.assigned_to_id + get_worker_tasks + worker_create_submission
     │   ├── sanity_checks.sql     # verification queries with expected values
     │   └── seed-images/          # placeholder photos to upload to the bucket under seed/
     ├── .env.example
@@ -290,47 +393,60 @@ civic-fix/
 
 | Component | Responsibility |
 |---|---|
-| `MapView` | Leaflet map; modes: `browse`, `pick-location`, `heat` |
+| `MapView` | Leaflet map; modes: browse, pick-location, heat |
 | `ReportCard` | Compact report summary with status badge and upvotes |
-| `ReportForm` | Multi-step form: photo → location → details → submit |
-| `DuplicateSuggestion` | Shows nearby similar reports with "Upvote instead" |
-| `StatusTimeline` | Vertical timeline from `status_history` |
+| `ReportForm` (wizard) | Multi-step form: Photos → Location → Details → Review |
+| `StatusTimeline` | Full lifecycle timeline (Reported → In Progress → Resolved → After Photo) |
 | `UpvoteButton` | Optimistic toggle |
+| `AdminTopbar` | Admin search + refresh + bell + profile + logout |
+| `Sidebar` | Admin nav in 2 groups (Operations / Insights) |
 | `StatCard`, `ChartCard` | Admin and City Health widgets |
-| `DataTable` | Reusable admin table with sort/filter |
-| `NotificationBell` | Unread count + dropdown |
+| `AdminReportsTable` | Full admin reports table with sticky header |
+| `TaskForm`, `TaskTable` | Assign Task page |
+| `SubmissionTable`, `SubmissionReviewModal` | Submissions page + review |
+| `IncompleteTable` | Incomplete page with aging indicators |
+| `DepartmentPerformanceTable` | Analytics page |
+| `WorkerTaskCard`, `WorkerSubmissionModal` | Worker dashboard + submission upload |
 
 ## 16. Route Structure
+
 See §14 (`client/src/app`). Guards:
+
 - Citizen pages: redirect to sign-in when unauthenticated (enforced in `middleware.js`).
+- Worker pages (`/worker(.*)`): redirect to `/` if role is not worker.
 - `(admin)` group: redirect to `/` if role is not admin (`middleware.js` + admin layout check; backend `requireAdmin` is the real protection).
 
 ## 17. Important Technical Decisions
 
 | # | Decision | Reason |
 |---|---|---|
-| D1 | Clerk for auth, Supabase only as DB/Storage | Faster sign-in UX and roles; avoids mixing two auth systems |
-| D2 | No direct frontend → Supabase DB access; no RLS reliance | One enforcement point (Express); simpler with Clerk |
+| D1 | Clerk for auth, Supabase only as DB/Storage | Faster sign-in UX and roles |
+| D2 | No direct frontend → Supabase DB access; no RLS reliance | One enforcement point (Express) |
 | D3 | Service-role key only on Render | Never exposed to browsers |
-| D4 | PostGIS `geography(Point, 4326)` for locations | Native distance queries for duplicates and heatmap |
+| D4 | PostGIS `geography(Point, 4326)` for locations | Native distance queries |
 | D5 | Signed direct uploads to Storage | Avoids passing large files through a free-tier server |
-| D6 | Status change through a single DB function/transaction | Guarantees history and notification are never out of sync |
-| D7 | Leaflet + OSM | Free, no API key, works everywhere |
-| D8 | AI behind a feature flag | Core flow must work even if the AI provider fails |
+| D6 | Status change through a single DB function/transaction | History + notification never out of sync |
+| D7 | Leaflet + OSM | Free, no API key |
+| D8 | AI behind a feature flag | Core flow works even if the AI provider fails |
 | D9 | Zod validation on every write endpoint | Consistent input safety |
 | D10 | Free-tier cold start mitigation (uptime pinger) | Render free instances sleep |
-| D11 | Frontend is Next.js (App Router) instead of SvelteKit; backend, DB, and auth are unchanged | Team decision (2026-09-20); Next.js deploys to Vercel and Clerk has a first-class Next.js SDK |
-| D12 | Next.js server code never imports Supabase; it only calls Express | Keeps D2 intact (one enforcement point) |
-| D13 | Public data pages fetch client-side (or server-side with timeout + revalidate) | Render cold start must not hang server rendering |
-| D14 | Aggregate and geo queries are Postgres functions called with `.rpc()`, executable only by `service_role` | `supabase-js` cannot run raw SQL; Supabase would otherwise expose the functions to `anon` |
-| D15 | Public chrome is hidden on `/admin` by a `SiteChrome` client wrapper instead of a `(public)` route group | Keeps the documented `app/` tree intact; one file instead of moving every public page |
-| D16 | Clerk keys are required env vars on the server from Phase 4 (startup fails without them) | Auth silently degrading to "everyone is a guest" is worse than a loud boot failure |
-| D17 | `reports.js` mixes public reads and citizen writes in one router (not split into `public.js` + a citizen router) with static routes (`/map`, `/nearby-duplicates`) registered before the dynamic `/:id` | Express matches routes by registration order, not specificity — a `/:id` route registered first would swallow `/reports/map` as `id = "map"` |
-| D18 | `comments` and `notifications` are read/written with plain `supabase.from(...)` calls, not RPCs | The service-role key already bypasses RLS; a function is only needed for multi-table transactions (`create_report`, `change_report_status`) or geometry math the PostgREST query builder can't express |
-| D19 | Supabase keys are required env vars on the server from Phase 5 (startup fails without them), same pattern as D16 for Clerk | Consistent fail-fast behavior; a half-configured backend should refuse to boot, not serve 500s for every request |
+| D11 | Frontend is Next.js (App Router) instead of SvelteKit | Team decision (2026-09-20) |
+| D12 | Next.js server code never imports Supabase; it only calls Express | Keeps D2 intact |
+| D13 | Public data pages fetch client-side | Render cold start must not hang server rendering |
+| D14 | Aggregate and geo queries are Postgres functions called with `.rpc()`, executable only by `service_role` | supabase-js cannot run raw SQL |
+| D15 | Public chrome hidden on `/admin` via `SiteChrome` | Keeps the documented `app/` tree intact |
+| D16 | Clerk keys are required env vars on the server from Phase 4 | Auth silently degrading is worse than a boot failure |
+| D17 | `reports.js` mixes public reads + citizen writes with static routes before `/:id` | Express matches by registration order |
+| D18 | comments/notifications use plain `.from()` calls | Service role bypasses RLS; only transactions need functions |
+| D19 | Supabase keys are required server env vars from Phase 5 | Consistent fail-fast |
+| D20 | Phase 7.5 (tasks/submissions) is a self-contained feature with its own DB tables | Approving a submission is the only path that closes the loop; those four writes happen inside one `review_submission` DB function |
+| D21 | `tasks.assigned_to_id` is deliberately NOT a FK to `profiles` | Admins assign before the worker has signed in; workers resolved live from Clerk |
+| D22 | `worker_create_submission` verifies the caller is the assignee in SQL | Trusting the client would let any worker submit against any task |
+| D23 | Worker role is independent of admin | Cleanest mental model for two orthogonal roles |
 
 ## 18. Deployment Architecture
-- `client/` → Vercel (root directory `client`, framework preset Next.js), env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (server-only; Clerk keys are needed from Phase 4).
+
+- `client/` → Vercel (root directory `client`, framework preset Next.js), env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (server-only), plus the four `NEXT_PUBLIC_CLERK_*_URL` values.
 - `server/` → Render Web Service (root `server`, start `node src/index.js`), env: `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CLIENT_ORIGIN`, `AI_ENABLED`, `AI_API_KEY`.
-- CORS: allow `CLIENT_ORIGIN` and `http://localhost:3000` (Next.js dev server) only; allow `Authorization` and `Content-Type` headers.
+- CORS: allow `CLIENT_ORIGIN` and `http://localhost:3000` only; allow `Authorization` and `Content-Type` headers.
 - Health check path on Render: `/health`.

@@ -20,13 +20,13 @@ const NAV_LINKS = [
  * Role-aware public navbar. Four visual variants driven by Clerk role:
  *
  *   Guest   → Sign In + Report an Issue (primary)
- *   Citizen → My Reports link + Report an Issue (primary)
- *   Worker  → My Tasks (primary) + My Reports + Report an Issue (secondary)
- *   Admin   → Admin Panel (primary) + Report an Issue (secondary)
+ *   Citizen → My Reports + Report an Issue (primary)
+ *   Worker  → My Reports + My Tasks (primary)
+ *   Admin   → My Reports + Admin Panel (primary)
  *
- * "Report an Issue" stays visible for workers and admins — they're citizens too, and
- * letting an admin file a report through the same queue (no privileged path) is the
- * transparency story.
+ * Workers and admins don't get "Report an Issue" in the topbar — their primary action
+ * is My Tasks / Admin Panel respectively. They can still file a report through the
+ * mobile drawer or by visiting /report/new directly.
  *
  * @param {{ unreadNotifications?: number }} props
  */
@@ -91,30 +91,20 @@ export default function Navbar({ unreadNotifications = 0 }) {
             </Button>
           </SignedOut>
 
-          {/* ADMIN — Admin Panel is the primary action; Report an Issue stays as secondary. */}
+          {/* ADMIN — only Admin Panel in the topbar. */}
           {isAdmin && (
-            <>
-              <Button as="a" href="/report/new" variant="secondary" size="sm">
-                Report an Issue
-              </Button>
-              <Button as="a" href="/admin" variant="primary" size="sm">
-                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                Admin Panel
-              </Button>
-            </>
+            <Button as="a" href="/admin" variant="primary" size="sm">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Admin Panel
+            </Button>
           )}
 
-          {/* WORKER — My Tasks is the primary action; Report an Issue stays as secondary. */}
+          {/* WORKER — only My Tasks in the topbar. */}
           {isWorker && (
-            <>
-              <Button as="a" href="/report/new" variant="secondary" size="sm">
-                Report an Issue
-              </Button>
-              <Button as="a" href="/worker/tasks" variant="primary" size="sm">
-                <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
-                My Tasks
-              </Button>
-            </>
+            <Button as="a" href="/worker/tasks" variant="primary" size="sm">
+              <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
+              My Tasks
+            </Button>
           )}
 
           {/* CITIZEN and GUEST — Report an Issue is the primary action. */}
@@ -142,7 +132,8 @@ export default function Navbar({ unreadNotifications = 0 }) {
         </div>
       </div>
 
-      {/* Mobile drawer — role-aware actions. */}
+      {/* Mobile drawer — role-aware actions. Report an Issue stays here for everyone
+          so admin/worker can still file a report from mobile without leaving the app. */}
       <div
         className={cn(
           'absolute inset-x-0 top-16 border-b border-border bg-surface shadow-md transition-all md:hidden',
@@ -210,8 +201,8 @@ export default function Navbar({ unreadNotifications = 0 }) {
         </nav>
       </div>
 
-      {/* Floating mobile FAB — "Report an Issue". Shown for everyone except admins, whose
-          primary action on mobile is the Admin Panel link in the drawer. */}
+      {/* Floating mobile FAB — hidden for admins (their primary action on mobile is
+          the Admin Panel link in the drawer). */}
       {!isAdmin && (
         <Button
           as="a"

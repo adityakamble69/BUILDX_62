@@ -20,7 +20,7 @@
 - Comment *why*, not *what*.
 
 **DON'T**
-- Use `var`, callbacks pyramids, or `console.log` left in committed code (use a logger util in the server).
+- Use `var`, callback pyramids, or `console.log` left in committed code (use a logger util in the server).
 - Leave dead code or commented-out blocks.
 - Copy-paste logic; extract it.
 
@@ -41,7 +41,7 @@
 
 ## 3. Folder Conventions
 - Follow the structure in `architecture.md` exactly.
-- **DO** put reusable UI in `client/src/components/ui`; feature components in the matching feature folder.
+- **DO** put reusable UI in `client/src/components/ui`; feature components in the matching feature folder (`admin/`, `worker/`, `report/`, `map/`, `home/`, `city-health/`).
 - **DO** keep all backend DB access in `server/src/services`.
 - **DON'T** create new top-level folders without documenting them.
 - **DON'T** import server code from client or vice versa.
@@ -49,14 +49,15 @@
 ## 4. Component Conventions (React / Next.js)
 **DO**
 - One component per file; props declared at the top.
-- Reuse components from `ui/` (Button, Card, Input, Badge, Modal, Toast, Skeleton).
+- Reuse components from `ui/` (Button, Card, Input, Badge, Modal, Toast, Skeleton, Pagination, EmptyState).
 - Keep components under ~200 lines; split when larger.
 - Default to server components; add `'use client'` only when state, effects, or browser APIs are needed.
 - Provide loading, empty, and error states for every data-driven component.
+- Add `suppressHydrationWarning` to form controls and interactive buttons that browser extensions commonly modify (see memory.md D32/D44).
 
 **DON'T**
 - Create a second version of an existing component (no `Button2`, `NewCard`).
-- Put fetch calls scattered in components; use `lib/api.js`.
+- Put fetch calls scattered in components; use `lib/api.js` / `lib/useApi.js`.
 - Hardcode colors, spacing, or fonts; use design tokens (`design.md`).
 
 ## 5. API Conventions
@@ -66,6 +67,7 @@
 - Return the standard envelope: `{ data, meta }` or `{ error: { code, message, details } }`.
 - Paginate all list endpoints (default 20, max 100).
 - Validate every request body/query with Zod.
+- Keep endpoint paths in `lib/api.js`'s `authPaths` map so every route the client knows about is declared in one place.
 
 **DON'T**
 - Return raw database errors or stack traces to clients.
@@ -76,7 +78,8 @@
 **DO**
 - Change schema only via numbered SQL files in `server/sql/` and update `database.md`.
 - Use foreign keys, checks, and indexes as defined.
-- Use transactions or DB functions for multi-table writes.
+- Use transactions or DB functions for multi-table writes (`create_report`, `change_report_status`, `review_submission`).
+- Revoke new DB functions from `public`/`anon`/`authenticated` and grant only to `service_role`.
 
 **DON'T**
 - Edit `upvote_count` manually (trigger owns it; `003_seed.sql` is the one documented exception).
@@ -86,7 +89,8 @@
 ## 7. Security Rules
 **DO**
 - Verify the Clerk token on every protected route.
-- Enforce roles on the backend with `requireAdmin`.
+- Enforce roles on the backend with `requireAdmin` / `requireWorker`.
+- Enforce resource ownership in SQL when a client could otherwise guess an id (`worker_create_submission` verifies the caller is the assignee).
 - Sanitize and length-limit all text input.
 - Restrict CORS to the known client origin(s).
 - Use rate limiting (global + stricter on `POST /reports`, `/comments`, `/ai/classify`).
@@ -102,8 +106,8 @@
 
 ## 8. Authentication Rules
 - Clerk is the only auth system. Do not enable Supabase Auth.
-- Role source: `sessionClaims.metadata.role`. Anything other than `"admin"` = citizen.
-- Admin accounts are created manually in the Clerk dashboard.
+- Role source: `sessionClaims.metadata.role`. `"admin"` and `"worker"` are independent roles; anything else = citizen.
+- Admin and worker accounts are created manually in the Clerk dashboard.
 - Create a `profiles` row lazily on the first authenticated write.
 
 ## 9. Environment Variable Rules
@@ -121,6 +125,7 @@
 **DO**
 - Use a central `errorHandler` middleware and a custom `AppError(code, status, message)`.
 - Wrap async controllers in `asyncHandler`.
+- Log the real Supabase error before throwing a generic `AppError` (see `utils/dbError.js`).
 - Show friendly toasts on the client; keep technical detail in server logs.
 - Handle "server waking up" (Render cold start) with a visible retry/loading message.
 
@@ -131,20 +136,21 @@
 ## 11. Validation Rules
 - Server validation is mandatory; client validation is for UX only.
 - Coordinates: lat −90..90, lng −180..180.
-- Title 5–120 chars, description ≤ 2000, comment 1–500.
-- Enum values must match `database.md`.
+- Title 5–120 chars, description ≤ 2000, comment 1–500, task title 3–200.
+- Enum values must match `database.md` (`report_status`, `image_kind`, `task_priority`, `task_status`, `submission_status`).
 
 ## 12. Responsive Design Rules
 - Mobile-first; base styles for 360 px, then `sm`, `md`, `lg`.
 - Tap targets ≥ 44 px.
 - Tables become cards or scroll horizontally on small screens.
 - Maps must have an explicit height and work with touch.
+- Public browse pages are full-width with responsive gutters; single-column reading/form pages and the admin panel stay on a narrower cap (design.md §12).
 
 ## 13. Accessibility Rules
 - Every input has a visible label.
 - Images have meaningful `alt` text.
 - Keyboard focus is visible and logical; modals trap focus and close on Esc.
-- Color is never the only status indicator (badges include text).
+- Color is never the only status indicator (badges include text; days-pending urgency in `IncompleteTable` also has an icon).
 - Meet WCAG AA contrast for text.
 
 ## 14. Git / GitHub Rules
@@ -167,7 +173,7 @@
 **DON'T**
 - Install a library for something achievable in a few lines.
 - Add heavy UI kits or state libraries.
-- Add a dependency without recording it in `memory.md` (Important Decisions).
+- Add a dependency without recording it in `memory.md` (Important Decisions / Dependency Log).
 
 ## 16. Performance Rules
 - Paginate lists; never return all reports except the capped map endpoint (max 1000 points).
@@ -180,13 +186,13 @@
 ## 17. Testing Rules
 - Every phase ends with a manual test of its completion criteria.
 - Test API endpoints with a REST client collection (Thunder Client/Postman/`.http` files) saved in `server/`.
-- Minimum manual test matrix before demo: guest, citizen, admin × desktop, mobile.
+- Minimum manual test matrix before demo: guest, citizen, worker, admin × desktop, mobile.
 - Test on the deployed URLs, not just localhost.
 - Fix bugs in the current phase before starting the next.
 
 ## 18. Documentation Rules
 - After each meaningful change: update `memory.md`, tick `phases.md`.
-- Update `architecture.md`, `database.md`, `design.md`, or this file whenever the corresponding thing changes.
+- Update `architecture.md`, `database.md`, `design.md`, `PRD.md`, or this file whenever the corresponding thing changes.
 - If two docs conflict: identify the conflict, decide the correct approach, update docs, then continue.
 
 ## 19. AI-Assistant Rules
