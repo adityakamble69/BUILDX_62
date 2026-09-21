@@ -14,6 +14,7 @@ import { authPaths } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { useToast } from '@/lib/context/ToastContext';
 import { uploadReportImages } from '@/lib/utils/uploadReportImages';
+import { blobToBase64 } from '@/lib/utils/blobToBase64';
 
 // Order follows phases.md: photo → location → details → duplicate check → submit.
 const STEPS = ['Photos', 'Location', 'Details', 'Review'];
@@ -41,6 +42,14 @@ export default function NewReportPage() {
   const [duplicates, setDuplicates] = useState(null);
   const [duplicatesLoading, setDuplicatesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Phase 8 (PRD FR5): fetched once, in the background, as soon as a photo exists — by the
+  // time the citizen reaches the Details step the suggestion is usually already there. Never
+  // re-fetched for the same photo set, and never blocks navigation; a failure or a disabled
+  // deployment just leaves this null and DetailsStep renders nothing extra (rules.md §10).
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const aiRequestedRef = useRef(false);
 
   // Object URLs created in PhotoStep are freed when the page unmounts (removals free their
   // own URL there). `photosRef` avoids re-running this effect on every photo change.
@@ -121,7 +130,26 @@ export default function NewReportPage() {
 
   function next() {
     if (!validateStep(step)) return;
+    if (step === 0) requestAiSuggestion();
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  }
+
+  /** Fires once per wizard session, right after the Photos step is confirmed. */
+  function requestAiSuggestion() {
+    if (aiRequestedRef.current || photosRef.current.length === 0) return;
+    aiRequestedRef.current = true;
+    setAiLoading(true);
+
+    blobToBase64(photosRef.current[0].blob)
+      .then((imageBase64) =>
+        request(authPaths.aiClassify, {
+          method: 'POST',
+          body: { imageBase64, mimeType: 'image/jpeg' },
+        }),
+      )
+      .then((res) => setAiSuggestion(res.data.suggestion))
+      .catch(() => setAiSuggestion(null)) // advisory only — never surfaced as an error
+      .finally(() => setAiLoading(false));
   }
 
   async function handleSubmit() {
@@ -139,6 +167,10 @@ export default function NewReportPage() {
           lng: location.lng,
           areaName: areaName.trim() || undefined,
           imagePaths,
+          // Audit fields (database.md §4) — stored alongside whatever the citizen actually
+          // chose, even when they didn't apply the suggestion or it disagreed with them.
+          aiCategory: aiSuggestion?.category,
+          aiSeverity: aiSuggestion?.severity,
         },
       });
       toast('Report submitted — thank you!', 'success');
@@ -170,7 +202,15 @@ export default function NewReportPage() {
             onAreaNameChange={setAreaName}
           />
         )}
-        {step === 2 && <DetailsStep values={details} onChange={updateDetails} errors={errors} />}
+        {step === 2 && (
+          <DetailsStep
+            values={details}
+            onChange={updateDetails}
+            errors={errors}
+            aiSuggestion={aiSuggestion}
+            aiLoading={aiLoading}
+          />
+        )}
         {step === 3 && (
           <ReviewStep
             values={{ ...details, areaName }}

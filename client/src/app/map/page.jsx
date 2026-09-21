@@ -14,6 +14,8 @@ import EmptyState from '@/components/ui/EmptyState';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import { cn } from '@/lib/utils/cn';
+import { PAGE_PADDING } from '@/lib/utils/layout';
 
 const CATEGORY_OPTIONS = [
   { value: '', label: 'All Categories' },
@@ -129,7 +131,7 @@ export default function MapPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6 px-4 py-8 md:px-6">
+    <div className={cn('flex w-full flex-col gap-6 py-8', PAGE_PADDING)}>
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">City Map</h1>
         <p className="mt-1 text-ink-muted">Explore and track civic issues in your area.</p>

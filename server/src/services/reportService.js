@@ -8,7 +8,7 @@ import { getCategoryIdBySlug } from './categoryService.js';
 // for why lat/lng need the view instead of the bare `reports` table).
 const REPORT_SUMMARY_SELECT = `
   id, title, status, severity, area_name, upvote_count, lat, lng, created_at, resolved_at,
-  category:categories(id, slug, name, icon),
+  category:categories!reports_category_id_fkey(id, slug, name, icon),
   department:departments(id, name),
   images:report_images(storage_path, kind)
 `;
@@ -16,10 +16,10 @@ const REPORT_SUMMARY_SELECT = `
 const REPORT_DETAIL_SELECT = `
   id, title, description, status, severity, area_name, upvote_count, lat, lng,
   created_at, updated_at, resolved_at, reject_reason,
-  category:categories(id, slug, name, icon),
+  category:categories!reports_category_id_fkey(id, slug, name, icon),
   department:departments(id, name),
   images:report_images(id, storage_path, kind, created_at),
-  reporter:profiles(id, display_name, avatar_url)
+  reporter:profiles!reports_reporter_id_fkey(id, display_name, avatar_url)
 `;
 
 /**
@@ -179,10 +179,10 @@ export async function toggleUpvote(reportId, userId) {
 // reusing REPORT_SUMMARY_SELECT.
 const ADMIN_REPORT_SELECT = `
   id, title, status, severity, area_name, upvote_count, lat, lng, created_at, resolved_at,
-  category:categories(id, slug, name, icon),
+  category:categories!reports_category_id_fkey(id, slug, name, icon),
   department:departments(id, name),
   images:report_images(storage_path, kind),
-  reporter:profiles(id, display_name)
+  reporter:profiles!reports_reporter_id_fkey(id, display_name)
 `;
 
 /**

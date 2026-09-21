@@ -7,6 +7,7 @@ import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
 import Logo from '@/components/layout/Logo';
 import Button from '@/components/ui/Button';
 import { cn } from '@/lib/utils/cn';
+import { PAGE_PADDING } from '@/lib/utils/layout';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
@@ -27,7 +28,7 @@ export default function Navbar({ unreadNotifications = 0 }) {
 
   return (
     <header className="sticky top-0 z-40 h-16 border-b border-border bg-surface">
-      <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between px-4 md:px-6">
+      <div className={cn('flex h-full w-full items-center justify-between', PAGE_PADDING)}>
         <Link href="/" className="flex items-center" aria-label="Civic Fix home">
           <Logo />
         </Link>

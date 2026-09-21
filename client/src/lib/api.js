@@ -67,28 +67,34 @@ export const getReportById = (id, signal) => apiFetch(`/api/v1/reports/${id}`, {
  * `useApi().request(path, options)`. The paths still live in this file so every API route
  * the client knows about is declared in one place (rules.md §4).
  */
+/** Strips undefined / null / '' before building a query string (prevents "undefined" strings reaching Zod enums). */
+const toQuery = (params) =>
+  new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  ).toString();
+
 export const authPaths = {
   reportDetail: (id) => `/api/v1/reports/${id}`,
   reportUpvote: (id) => `/api/v1/reports/${id}/upvote`,
   reportComments: (id) => `/api/v1/reports/${id}/comments`,
   comment: (id) => `/api/v1/comments/${id}`,
   uploadSign: '/api/v1/uploads/sign',
-  myReports: (params) => `/api/v1/me/reports?${new URLSearchParams(params).toString()}`,
-  myNotifications: (params) => `/api/v1/me/notifications?${new URLSearchParams(params).toString()}`,
+  myReports: (params) => { const q = toQuery(params); return `/api/v1/me/reports${q ? `?${q}` : ''}`; },
+  myNotifications: (params) => { const q = toQuery(params); return `/api/v1/me/notifications${q ? `?${q}` : ''}`; },
   notificationsRead: '/api/v1/me/notifications/read',
   reports: '/api/v1/reports',
-  nearbyDuplicates: (params) =>
-    `/api/v1/reports/nearby-duplicates?${new URLSearchParams(params).toString()}`,
+  nearbyDuplicates: (params) => { const q = toQuery(params); return `/api/v1/reports/nearby-duplicates${q ? `?${q}` : ''}`; },
+  aiClassify: '/api/v1/ai/classify',
 
   // --- Admin (Phase 7). Every one of these needs the admin role; requireAdmin on the
   // server is the real check, these paths are just where the client points. ---
-  adminReports: (params) => `/api/v1/admin/reports?${new URLSearchParams(params).toString()}`,
+  adminReports: (params) => { const q = toQuery(params); return `/api/v1/admin/reports${q ? `?${q}` : ''}`; },
   adminReportStatus: (id) => `/api/v1/admin/reports/${id}/status`,
   adminReportAssign: (id) => `/api/v1/admin/reports/${id}/assign`,
   adminResolutionImage: (id) => `/api/v1/admin/reports/${id}/resolution-image`,
   adminDeleteReport: (id) => `/api/v1/admin/reports/${id}`,
   adminDeleteComment: (id) => `/api/v1/admin/comments/${id}`,
-  adminStats: (params) => `/api/v1/admin/stats${params ? `?${new URLSearchParams(params).toString()}` : ''}`,
+  adminStats: (params) => { const q = params ? toQuery(params) : ''; return `/api/v1/admin/stats${q ? `?${q}` : ''}`; },
   adminHeatmap: '/api/v1/admin/heatmap',
   adminDepartments: '/api/v1/admin/departments',
   adminDepartment: (id) => `/api/v1/admin/departments/${id}`,

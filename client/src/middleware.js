@@ -6,7 +6,6 @@ const isCitizenRoute = createRouteMatcher([
   '/report/new(.*)',
   '/my-reports(.*)',
   '/notifications(.*)',
-  '/auth-check(.*)',
 ]);
 
 // Pages that additionally need the admin role.

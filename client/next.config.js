@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  // reactStrictMode disabled: Leaflet mutates DOM directly and crashes on Strict Mode's
+  // double-mount in dev (TypeError: Cannot read properties of undefined reading '_leaflet_pos').
+  // Production is unaffected — Strict Mode only runs in development.
+  reactStrictMode: false,
   images: {
     // Report photos live in the public Supabase Storage bucket `report-images`.
     remotePatterns: [

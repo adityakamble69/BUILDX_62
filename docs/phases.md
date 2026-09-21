@@ -6,6 +6,10 @@
 
 **Priority order if time runs short:** Phases 0–6 and 9–10 are the must-have core. Phases 7 and 8 are the differentiators; do 7 before 8.
 
+> Doc-sync note: this file previously marked Phase 8 as entirely unstarted while the server
+> half (SQL, service, controller, validator, route) was already built and wired in. See
+> memory.md's Phase Progress table and Recent Changes for the corrected picture.
+
 ---
 
 ## Phase 0 — Documentation Foundation  (S)
@@ -131,7 +135,7 @@
 - [x] Reverse geocode area name (Nominatim) on pin change
 - [x] `/my-reports`
 - [x] Notification bell + `/notifications`
-- [ ] Optimistic upvote, toasts, loading/empty/error states
+- [x] Optimistic upvote, toasts, loading/empty/error states
 **Files:** `client/src/app/**`, `client/src/components/report/**`, `client/src/components/map/**`
 **Dependencies:** Phases 3, 4, 5
 **Expected result:** A citizen can file, browse, upvote, and comment on real data on mobile and desktop.
@@ -159,15 +163,15 @@
 ## Phase 8 — Differentiators (AI + City Health)  (M)
 **Objective:** Add the features that make judges remember the project.
 **Tasks**
-- [ ] `POST /ai/classify` (photo + text → suggested category + severity), behind `AI_ENABLED`
-- [ ] Form pre-fills AI suggestion, user can override; store `ai_category_id`/`ai_severity`
-- [ ] Graceful fallback when AI fails or is disabled
-- [ ] `/city-health` public page (resolution rate, avg fix time, category breakdown, top open issues)
-- [ ] Optional: "Official response" badge on admin comments
+- [x] `POST /ai/classify` (photo + text → suggested category + severity), behind `AI_ENABLED`
+- [x] Form pre-fills AI suggestion, user can override; store `ai_category_id`/`ai_severity`
+- [x] Graceful fallback when AI fails or is disabled
+- [x] `/city-health` public page (resolution rate, avg fix time, category breakdown, top open issues)
+- [x] Optional: "Official response" badge on admin comments
 **Files:** `server/src/services/aiService.js`, `client/src/app/city-health/page.jsx`, `ReportForm` update
 **Dependencies:** Phase 6 (and 7 for stats consistency)
 **Expected result:** Filing a report feels smart; City Health tells a strong story.
-**Completion criteria:** AI suggestion appears within a few seconds, and the form still works when AI is turned off.
+**Completion criteria:** AI suggestion appears within a few seconds, and the form still works when AI is turned off. Code-complete; needs `AI_ENABLED=true` + a real `AI_API_KEY` and live Supabase data to verify the suggestion end to end (same infra blocker as Phases 5-7).
 
 ---
 

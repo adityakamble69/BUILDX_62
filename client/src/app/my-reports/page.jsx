@@ -10,6 +10,8 @@ import ReportCard from '@/components/report/ReportCard';
 import { ReportCardSkeleton } from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
+import { cn } from '@/lib/utils/cn';
+import { PAGE_PADDING } from '@/lib/utils/layout';
 
 const PAGE_SIZE = 12;
 
@@ -53,7 +55,7 @@ export default function MyReportsPage() {
   }, [isLoaded, page, request]);
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6 px-4 py-8 md:px-6">
+    <div className={cn('flex w-full flex-col gap-6 py-8', PAGE_PADDING)}>
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">My reports</h1>
         <p className="mt-1 text-ink-muted">Track the status of everything you have submitted.</p>
@@ -67,7 +69,7 @@ export default function MyReportsPage() {
       )}
 
       {!error && reports === null && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: 4 }).map((_, i) => (
             <ReportCardSkeleton key={i} />
           ))}
@@ -89,7 +91,7 @@ export default function MyReportsPage() {
           <p className="text-sm text-ink-muted">
             {total} report{total === 1 ? '' : 's'} submitted
           </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             {reports.map((r) => (
               <ReportCard
                 key={r.id}

@@ -182,7 +182,16 @@ White surface, `border`, radius-lg, shadow-sm; hover: shadow-md (only when click
 | `sm` | 640 px | Two-column cards |
 | `md` | 768 px | Sidebar visible, tables |
 | `lg` | 1024 px | Three-column feed, full admin layout |
-| `xl` | 1280 px | Max content width 1200 px, centered |
+| `xl` | 1280 px | Page shells go edge-to-edge (no max-width cap); gutters widen via `PAGE_PADDING` |
+| `2xl` | 1536 px | Gutters widen again; `LatestReports`/`/reports`/`/my-reports` grids gain a 5th column |
+
+Public browse/dashboard shells (Navbar, Footer, `/`, `/map`, `/reports`, `/my-reports`,
+`/city-health`) are full-width with responsive horizontal padding (`client/src/lib/utils/layout.js`'s
+`PAGE_PADDING`: `px-4 sm:px-6 lg:px-10 xl:px-16 2xl:px-24`) rather than a fixed centered max-width
+(memory.md D42, superseding the earlier "max content width 1200 px, centered" rule). Single-column
+reading/form pages (`/report/new`, `/reports/[id]`, `/notifications`, `/sign-in`, `/sign-up`) and the
+admin panel keep a narrower cap — edge-to-edge text and form fields on an ultrawide monitor hurts
+readability more than it helps.
 
 ## 13. Mobile Design Rules
 - Minimum tap target 44 × 44 px.

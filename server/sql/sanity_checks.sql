@@ -111,7 +111,7 @@ select create_report(
   'Sanity check assign+status', 'Created by sanity_checks.sql', 2,
   21.15, 79.09, 'Sanity Area', array['seed/before-pothole-1.jpg']
 );
-select id as sanity_report_id into temp sanity_report from reports where title = 'Sanity check assign+status';
+select id into temp sanity_report from reports where title = 'Sanity check assign+status';
 select assign_report_department((select id from sanity_report), (select id from departments where name = 'Roads'));
 select change_report_status((select id from sanity_report), 'in_progress', 'user_seed_admin', 'Crew dispatched');
 select department_id, status from reports where id = (select id from sanity_report);   -- <Roads id> | in_progress
@@ -129,7 +129,7 @@ select create_report(
   'Sanity check after photo', 'Created by sanity_checks.sql', 2,
   21.15, 79.09, 'Sanity Area', array['seed/before-pothole-1.jpg']
 );
-select id as sanity_report_id into temp sanity_report from reports where title = 'Sanity check after photo';
+select id into temp sanity_report from reports where title = 'Sanity check after photo';
 select add_resolution_image((select id from sanity_report), 'seed/after-pothole.jpg', 'user_seed_admin');
 select kind from report_images where report_id = (select id from sanity_report) and kind = 'after'; -- after
 select status from reports where id = (select id from sanity_report);                               -- reported
@@ -144,7 +144,7 @@ select create_report(
   'Sanity check delete', 'Created by sanity_checks.sql', 2,
   21.15, 79.09, 'Sanity Area', array['seed/before-pothole-1.jpg']
 );
-select id as sanity_report_id into temp sanity_report from reports where title = 'Sanity check delete';
+select id into temp sanity_report from reports where title = 'Sanity check delete';
 select delete_report((select id from sanity_report));
 select count(*) from report_images where report_id = (select id from sanity_report);   -- 0
 select count(*) from status_history where report_id = (select id from sanity_report);  -- 0

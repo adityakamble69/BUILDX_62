@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import Logo from '@/components/layout/Logo';
+import { cn } from '@/lib/utils/cn';
+import { PAGE_PADDING } from '@/lib/utils/layout';
 
 const LINKS = [
   { href: '/map', label: 'Map' },
@@ -11,7 +13,12 @@ const LINKS = [
 export default function Footer() {
   return (
     <footer className="border-t border-border bg-surface">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-4 py-10 md:flex-row md:items-start md:justify-between md:px-6">
+      <div
+        className={cn(
+          'flex w-full flex-col gap-6 py-10 md:flex-row md:items-start md:justify-between',
+          PAGE_PADDING,
+        )}
+      >
         <div className="max-w-sm">
           <Logo />
           <p className="mt-3 text-sm text-ink-muted">

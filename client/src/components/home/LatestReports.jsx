@@ -47,7 +47,7 @@ export default function LatestReports() {
       )}
 
       {!error && reports === null && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <ReportCardSkeleton key={i} />
           ))}
@@ -66,7 +66,7 @@ export default function LatestReports() {
       )}
 
       {!error && reports?.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {reports.map((r) => (
             <ReportCard
               key={r.id}

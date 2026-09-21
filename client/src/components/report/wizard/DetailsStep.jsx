@@ -1,11 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
 import { getCategories } from '@/lib/api';
-import { SEVERITY_OPTIONS } from '@/lib/utils/severity';
+import { getCategoryLabel } from '@/lib/utils/categories';
+import { SEVERITY_OPTIONS, getSeverityLabel } from '@/lib/utils/severity';
 
 const SEVERITY_SELECT = SEVERITY_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }));
 
@@ -16,13 +20,20 @@ const SEVERITY_SELECT = SEVERITY_OPTIONS.map((o) => ({ value: String(o.value), l
  *
  * `errors` is owned by the wizard so validation can run on "Next" and mark fields here.
  *
+ * `aiSuggestion` (Phase 8, PRD FR5) is fetched by the wizard from `POST /ai/classify` while
+ * the citizen is still on the Photos/Location steps, so it's usually ready by the time this
+ * step mounts. It only ever offers a pre-fill via "Use suggestion" — it never sets `values`
+ * itself, so a citizen who has already started typing is never silently overwritten.
+ *
  * @param {{
  *  values: { category: string, severity: string, title: string, description: string },
  *  onChange: (patch: object) => void,
  *  errors: Record<string, string>,
+ *  aiSuggestion?: { category: string, severity: number } | null,
+ *  aiLoading?: boolean,
  * }} props
  */
-export default function DetailsStep({ values, onChange, errors }) {
+export default function DetailsStep({ values, onChange, errors, aiSuggestion, aiLoading }) {
   const [categories, setCategories] = useState(null);
   const [categoryError, setCategoryError] = useState(false);
 
@@ -36,6 +47,11 @@ export default function DetailsStep({ values, onChange, errors }) {
     return () => controller.abort();
   }, []);
 
+  const suggestionApplied =
+    aiSuggestion &&
+    values.category === aiSuggestion.category &&
+    Number(values.severity) === aiSuggestion.severity;
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -44,6 +60,33 @@ export default function DetailsStep({ values, onChange, errors }) {
           A clear title and a short description help the city route this to the right department.
         </p>
       </div>
+
+      {aiLoading && (
+        <p className="inline-flex items-center gap-2 text-sm text-ink-muted">
+          <Sparkles className="h-4 w-4 animate-pulse text-primary-600" aria-hidden="true" />
+          Looking at your photo for a category suggestion…
+        </p>
+      )}
+
+      {!aiLoading && aiSuggestion && !suggestionApplied && (
+        <Card className="border-primary-600/30 bg-primary-50">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Sparkles className="h-4 w-4 text-primary-600" aria-hidden="true" />
+              AI suggests {getCategoryLabel(aiSuggestion.category)} · {getSeverityLabel(aiSuggestion.severity)}{' '}
+              severity
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => onChange({ category: aiSuggestion.category, severity: String(aiSuggestion.severity) })}
+            >
+              Use suggestion
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Input
         label="Title"
