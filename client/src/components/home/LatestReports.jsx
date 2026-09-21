@@ -9,7 +9,8 @@ import ReportCard from '@/components/report/ReportCard';
 import { ReportCardSkeleton } from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 
-const PAGE_SIZE = 4;
+// 3 cards, matching the landing mockup (was 4).
+const PAGE_SIZE = 3;
 
 export default function LatestReports() {
   const [reports, setReports] = useState(null);
@@ -47,7 +48,7 @@ export default function LatestReports() {
       )}
 
       {!error && reports === null && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <ReportCardSkeleton key={i} />
           ))}
@@ -66,7 +67,7 @@ export default function LatestReports() {
       )}
 
       {!error && reports?.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {reports.map((r) => (
             <ReportCard
               key={r.id}

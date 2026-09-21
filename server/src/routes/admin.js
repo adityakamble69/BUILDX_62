@@ -13,6 +13,15 @@ import {
   adminStatsQuerySchema,
   departmentCreateSchema,
   departmentUpdateSchema,
+  taskListQuerySchema,
+  taskCreateSchema,
+  taskStatusChangeSchema,
+  taskIdParamsSchema,
+  submissionListQuerySchema,
+  submissionCreateSchema,
+  submissionReviewSchema,
+  submissionIdParamsSchema,
+  incompleteQuerySchema,
 } from '../validators/adminValidators.js';
 import {
   getAdminReports,
@@ -28,15 +37,27 @@ import {
   postAdminDepartment,
   patchAdminDepartment,
 } from '../controllers/adminDepartmentsController.js';
+import {
+  getAdminTasks,
+  postAdminTask,
+  patchAdminTaskStatus,
+} from '../controllers/adminTasksController.js';
+import {
+  getAdminSubmissions,
+  postAdminSubmission,
+  patchAdminSubmissionReview,
+} from '../controllers/adminSubmissionsController.js';
+import {
+  getAdminAnalytics,
+  getAdminIncomplete,
+} from '../controllers/adminAnalyticsController.js';
+import { getAdminWorkers } from '../controllers/workersController.js';
 
-// Every route in this router requires the admin role (architecture.md §9); the real
-// protection is `requireAdmin` here, not the frontend's route guards.
 const router = Router();
 router.use(requireAdmin);
 
+// --- Reports --------------------------------------------------------------
 router.get('/reports', validate(adminReportListQuerySchema, 'query'), asyncHandler(getAdminReports));
-// No GET /admin/reports/:id — the admin detail page reuses the public GET /reports/:id,
-// which already returns photos, comments and status history (architecture.md endpoint list).
 
 router.patch(
   '/reports/:id/status',
@@ -58,11 +79,14 @@ router.post(
 );
 router.delete('/reports/:id', validate(reportIdParamsSchema, 'params'), asyncHandler(deleteAdminReport));
 
+// --- Comments -------------------------------------------------------------
 router.delete('/comments/:id', validate(commentIdParamsSchema, 'params'), asyncHandler(deleteAdminComment));
 
+// --- Stats / heatmap ------------------------------------------------------
 router.get('/stats', validate(adminStatsQuerySchema, 'query'), asyncHandler(getAdminStatsController));
 router.get('/heatmap', asyncHandler(getAdminHeatmap));
 
+// --- Departments ----------------------------------------------------------
 router.get('/departments', asyncHandler(getAdminDepartments));
 router.post('/departments', validate(departmentCreateSchema), asyncHandler(postAdminDepartment));
 router.patch(
@@ -71,5 +95,32 @@ router.patch(
   validate(departmentUpdateSchema),
   asyncHandler(patchAdminDepartment),
 );
+
+// --- Tasks ----------------------------------------------------------------
+router.get('/tasks', validate(taskListQuerySchema, 'query'), asyncHandler(getAdminTasks));
+router.post('/tasks', validate(taskCreateSchema), asyncHandler(postAdminTask));
+router.patch(
+  '/tasks/:id/status',
+  validate(taskIdParamsSchema, 'params'),
+  validate(taskStatusChangeSchema),
+  asyncHandler(patchAdminTaskStatus),
+);
+
+// --- Submissions ----------------------------------------------------------
+router.get('/submissions', validate(submissionListQuerySchema, 'query'), asyncHandler(getAdminSubmissions));
+router.post('/submissions', validate(submissionCreateSchema), asyncHandler(postAdminSubmission));
+router.patch(
+  '/submissions/:id/review',
+  validate(submissionIdParamsSchema, 'params'),
+  validate(submissionReviewSchema),
+  asyncHandler(patchAdminSubmissionReview),
+);
+
+// --- Incomplete + Analytics -----------------------------------------------
+router.get('/incomplete', validate(incompleteQuerySchema, 'query'), asyncHandler(getAdminIncomplete));
+router.get('/analytics', asyncHandler(getAdminAnalytics));
+
+// --- Workers (Phase 5-worker) ---------------------------------------------
+router.get('/workers', asyncHandler(getAdminWorkers));
 
 export default router;

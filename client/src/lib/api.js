@@ -10,12 +10,6 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * @param {string} path  Starts with "/" (e.g. "/api/v1/reports"; "/health" has no prefix).
- * @param {{ token?: string, signal?: AbortSignal, method?: string, body?: unknown }} [options]
- *   `token` is the Clerk session token (from useAuth().getToken) for protected routes.
- * @returns {Promise<any>} the parsed `{ data, meta }` envelope
- */
 export async function apiFetch(path, { token, body, headers, ...options } = {}) {
   let res;
   try {
@@ -45,13 +39,10 @@ export async function apiFetch(path, { token, body, headers, ...options } = {}) 
 
 export const checkHealth = (signal) => apiFetch('/health', { signal });
 
-// --- Public reads (Phase 6). All are unauthenticated GETs. ---
-
+// --- Public reads ---
 export const getStatsPublic = (signal) => apiFetch('/api/v1/stats/public', { signal });
-
 export const getCategories = (signal) => apiFetch('/api/v1/categories', { signal });
 
-/** @param {{ page?: number, pageSize?: number, category?: string, status?: string, sort?: 'newest'|'upvotes' }} [params] */
 export function listReports(params = {}, signal) {
   const query = new URLSearchParams(
     Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
@@ -61,19 +52,13 @@ export function listReports(params = {}, signal) {
 
 export const getReportById = (id, signal) => apiFetch(`/api/v1/reports/${id}`, { signal });
 
-/**
- * Paths for endpoints that need a Clerk token. They get no helper function here because
- * `lib/api.js` stays Clerk-free (memory.md D18) — components call them through
- * `useApi().request(path, options)`. The paths still live in this file so every API route
- * the client knows about is declared in one place (rules.md §4).
- */
-/** Strips undefined / null / '' before building a query string (prevents "undefined" strings reaching Zod enums). */
 const toQuery = (params) =>
   new URLSearchParams(
     Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
   ).toString();
 
 export const authPaths = {
+  // --- Citizen ---
   reportDetail: (id) => `/api/v1/reports/${id}`,
   reportUpvote: (id) => `/api/v1/reports/${id}/upvote`,
   reportComments: (id) => `/api/v1/reports/${id}/comments`,
@@ -86,8 +71,11 @@ export const authPaths = {
   nearbyDuplicates: (params) => { const q = toQuery(params); return `/api/v1/reports/nearby-duplicates${q ? `?${q}` : ''}`; },
   aiClassify: '/api/v1/ai/classify',
 
-  // --- Admin (Phase 7). Every one of these needs the admin role; requireAdmin on the
-  // server is the real check, these paths are just where the client points. ---
+  // --- Worker (Phase 5-worker) ---
+  myTasks: '/api/v1/me/tasks',
+  myTaskSubmission: (id) => `/api/v1/me/tasks/${id}/submission`,
+
+  // --- Admin ---
   adminReports: (params) => { const q = toQuery(params); return `/api/v1/admin/reports${q ? `?${q}` : ''}`; },
   adminReportStatus: (id) => `/api/v1/admin/reports/${id}/status`,
   adminReportAssign: (id) => `/api/v1/admin/reports/${id}/assign`,
@@ -98,15 +86,15 @@ export const authPaths = {
   adminHeatmap: '/api/v1/admin/heatmap',
   adminDepartments: '/api/v1/admin/departments',
   adminDepartment: (id) => `/api/v1/admin/departments/${id}`,
+  adminTasks: (params) => { const q = params ? toQuery(params) : ''; return `/api/v1/admin/tasks${q ? `?${q}` : ''}`; },
+  adminTaskStatus: (id) => `/api/v1/admin/tasks/${id}/status`,
+  adminSubmissions: (params) => { const q = params ? toQuery(params) : ''; return `/api/v1/admin/submissions${q ? `?${q}` : ''}`; },
+  adminSubmissionReview: (id) => `/api/v1/admin/submissions/${id}/review`,
+  adminIncomplete: (params) => { const q = params ? toQuery(params) : ''; return `/api/v1/admin/incomplete${q ? `?${q}` : ''}`; },
+  adminAnalytics: '/api/v1/admin/analytics',
+  adminWorkers: '/api/v1/admin/workers',
 };
 
-/**
- * Lightweight marker points for the map (capped server-side at 1000, rules.md §16).
- * Returns bare `{ id, title, status, category_id, upvote_count, lat, lng }` rows — no
- * thumbnail/area/timestamp, unlike `listReports`. See `/map` page for how the two are
- * combined for richer popups.
- * @param {{ category?: string, status?: string }} [params]
- */
 export function getReportsMap(params = {}, signal) {
   const query = new URLSearchParams(
     Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),

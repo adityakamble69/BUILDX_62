@@ -3,80 +3,97 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { SignOutButton } from '@clerk/nextjs';
 import {
   LayoutDashboard,
   FileText,
+  ClipboardCheck,
+  Inbox,
+  AlertCircle,
+  BarChart3,
   Flame,
   Building2,
   Menu,
   X,
   LogOut,
 } from 'lucide-react';
+import { SignOutButton } from '@clerk/nextjs';
 import Logo from '@/components/layout/Logo';
 import { cn } from '@/lib/utils/cn';
 
-// architecture.md §14's folder tree is the only source of truth for admin routes:
-// /admin, /admin/reports, /admin/reports/[id], /admin/heatmap, /admin/departments.
-// The uploaded UI mockup shows extra items (Assign Task, Submissions, Incomplete,
-// Analytics) that have no matching route anywhere in the docs — flagged for the team
-// rather than built, same as the report wizard's step order (memory.md D35/D37).
-const NAV_ITEMS = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/reports', label: 'Reports', icon: FileText },
-  { href: '/admin/heatmap', label: 'Heatmap', icon: Flame },
-  { href: '/admin/departments', label: 'Departments', icon: Building2 },
+// Two groups: "operations" is the daily workflow (report → assign → submit → review →
+// resolve); "insights & setup" holds the tools.
+const NAV_GROUPS = [
+  {
+    label: 'Operations',
+    items: [
+      { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+      { href: '/admin/reports', label: 'Reports', icon: FileText },
+      { href: '/admin/tasks', label: 'Assign Task', icon: ClipboardCheck },
+      { href: '/admin/submissions', label: 'Submissions', icon: Inbox },
+      { href: '/admin/incomplete', label: 'Incomplete', icon: AlertCircle },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/admin/heatmap', label: 'Heatmap', icon: Flame },
+      { href: '/admin/departments', label: 'Departments', icon: Building2 },
+    ],
+  },
 ];
 
-/** @param {{ adminName?: string, adminEmail?: string }} props */
-export default function Sidebar({ adminName = 'Admin', adminEmail = '' }) {
+/**
+ * Admin sidebar. The user profile block lives in `AdminTopbar` (which opens Clerk's
+ * user-profile modal, sign-out included) — not duplicated here, so the sidebar stays
+ * purely navigation.
+ */
+export default function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const isActive = (href) => (href === '/admin' ? pathname === href : pathname.startsWith(href));
+  const isActive = (item) =>
+    item.exact ? pathname === item.href : pathname.startsWith(item.href);
 
   const NavList = ({ onNavigate }) => (
-    <nav className="flex flex-1 flex-col gap-1 p-4" aria-label="Admin">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          onClick={onNavigate}
-          className={cn(
-            'flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-white/80 transition',
-            isActive(href) ? 'bg-primary-600 text-white' : 'hover:bg-white/10',
-          )}
-          aria-current={isActive(href) ? 'page' : undefined}
-        >
-          <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-          {label}
-        </Link>
+    <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4" aria-label="Admin">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.label} className="flex flex-col gap-1">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/40">
+            {group.label}
+          </p>
+          {group.items.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  'flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-white/80 transition',
+                  active ? 'bg-primary-600 text-white shadow-sm' : 'hover:bg-white/10',
+                )}
+                aria-current={active ? 'page' : undefined}
+              >
+                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
       ))}
     </nav>
   );
 
   return (
     <>
-      {/* Desktop rail */}
-      <aside className="hidden h-screen w-64 shrink-0 flex-col bg-secondary-600 md:flex">
-        <div className="flex h-16 items-center px-4">
+      {/* Desktop rail — logo + nav only */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-secondary-600 md:flex">
+        <div className="flex h-16 shrink-0 items-center px-5">
           <Logo mode="dark" />
         </div>
         <NavList onNavigate={undefined} />
-        <div className="flex items-center gap-3 border-t border-white/10 p-4 text-white">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-600 text-sm font-semibold">
-            {adminName.slice(0, 2).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{adminName}</p>
-            {adminEmail && <p className="truncate text-xs text-white/60">{adminEmail}</p>}
-          </div>
-          <SignOutButton redirectUrl="/">
-            <button type="button" aria-label="Log out" className="rounded p-1 hover:bg-white/10">
-              <LogOut className="h-4 w-4" />
-            </button>
-          </SignOutButton>
-        </div>
       </aside>
 
       {/* Mobile top bar + drawer */}
@@ -94,14 +111,21 @@ export default function Sidebar({ adminName = 'Admin', adminEmail = '' }) {
       </div>
       {open && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-[rgba(15,23,42,0.5)]" onClick={() => setOpen(false)} aria-hidden="true" />
+          <div
+            className="absolute inset-0 bg-[rgba(15,23,42,0.5)]"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
           <aside className="relative flex h-full w-64 flex-col bg-secondary-600">
             <NavList onNavigate={() => setOpen(false)} />
+            {/* Mobile drawer keeps a sign-out button — on mobile the topbar profile
+                still works, but a one-tap logout here is worth the extra row. */}
             <div className="border-t border-white/10 p-4">
               <SignOutButton redirectUrl="/">
                 <button
                   type="button"
                   className="flex h-11 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-white/80 hover:bg-white/10"
+                  suppressHydrationWarning
                 >
                   <LogOut className="h-5 w-5" aria-hidden="true" /> Log out
                 </button>

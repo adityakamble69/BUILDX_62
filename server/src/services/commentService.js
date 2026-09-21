@@ -6,20 +6,27 @@ import { dbError } from '../utils/dbError.js';
  * @param {string} reportId
  * @param {string} userId
  * @param {string} body
- * @param {boolean} isAdmin Set true only from an admin-authenticated route (Phase 7 adds one).
+ * @param {boolean} isAdmin Set true only from an admin-authenticated route.
+ *
+ * Phase 5-worker note: an admin commenting on their OWN report is not an official
+ * response — they're just talking as the citizen who filed it. The `is_admin` flag is
+ * only set when an admin replies to someone *else*'s report, so the "Official" badge
+ * stays meaningful.
  */
 export async function addComment(reportId, userId, body, isAdmin = false) {
   const { data: report, error: reportErr } = await supabase
     .from('reports')
-    .select('id')
+    .select('id, reporter_id')
     .eq('id', reportId)
     .maybeSingle();
   if (reportErr) throw dbError('addComment(report check)', reportErr, 'Could not add comment');
   if (!report) throw new AppError('NOT_FOUND', 404, 'Report not found');
 
+  const isOfficial = isAdmin && report.reporter_id !== userId;
+
   const { data, error } = await supabase
     .from('comments')
-    .insert({ report_id: reportId, user_id: userId, body, is_admin: isAdmin })
+    .insert({ report_id: reportId, user_id: userId, body, is_admin: isOfficial })
     .select('id, body, is_admin, created_at, author:profiles(id, display_name, avatar_url)')
     .single();
   if (error) throw dbError('addComment', error, 'Could not add comment');
@@ -28,9 +35,7 @@ export async function addComment(reportId, userId, body, isAdmin = false) {
 
 /**
  * Citizens may only delete their own comment (architecture.md §9); admins deleting any
- * comment is a separate Phase 7 route (`DELETE /admin/comments/:id`) that skips this check.
- * @param {string} commentId
- * @param {string} userId
+ * comment is a separate route (`DELETE /admin/comments/:id`) that skips this check.
  */
 export async function deleteOwnComment(commentId, userId) {
   const { data: comment, error: findErr } = await supabase
@@ -47,11 +52,8 @@ export async function deleteOwnComment(commentId, userId) {
 }
 
 /**
- * Admin moderation: delete any comment, no ownership check (architecture.md
- * `DELETE /admin/comments/:id`). Goes through the `admin_delete_comment` RPC rather than
- * a plain `.delete()` only so a missing id surfaces as a clean 404 instead of a silent
- * no-op (rules.md §10 — don't swallow errors).
- * @param {string} commentId
+ * Admin moderation: delete any comment, no ownership check. Goes through the
+ * `admin_delete_comment` RPC so a missing id surfaces as a clean 404.
  */
 export async function adminDeleteComment(commentId) {
   const { error } = await supabase.rpc('admin_delete_comment', { p_comment_id: commentId });

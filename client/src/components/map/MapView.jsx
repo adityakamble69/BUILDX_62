@@ -110,9 +110,15 @@ function HeatLayer({ points }) {
   return null;
 }
 
-/** Floating "use my location" button, only rendered in `pick-location` mode. */
-function LocateMeControl({ onLocate }) {
-  const map = useMap();
+/**
+ * Floating "use my location" button, only rendered in `pick-location` mode.
+ *
+ * Rendered as a SIBLING of <MapContainer> (so the button can be absolutely positioned
+ * over the map's corner without Leaflet messing with it), which means it can't call
+ * `useMap()` — that hook only works inside MapContainer's context. The map instance is
+ * passed in as a prop instead, captured from MapContainer's ref in MapView below.
+ */
+function LocateMeControl({ map, onLocate }) {
   const [locating, setLocating] = useState(false);
   const [unsupported, setUnsupported] = useState(false);
 
@@ -184,9 +190,15 @@ export default function MapView({
   const isPicker = mode === 'pick-location';
   const isHeat = mode === 'heat';
 
+  // Leaflet map instance, captured from MapContainer's ref. Needed so the sibling
+  // LocateMeControl can call imperative map methods (setView) without useMap().
+  // Starts null; MapContainer's ref callback sets it once the map mounts.
+  const [map, setMap] = useState(null);
+
   return (
     <div className={`relative overflow-hidden rounded-lg border border-border ${className}`}>
       <MapContainer
+        ref={setMap}
         center={center ?? (isPicker && value ? [value.lat, value.lng] : DEFAULT_CENTER)}
         zoom={zoom ?? (isPicker && value ? 16 : DEFAULT_ZOOM)}
         scrollWheelZoom
@@ -246,7 +258,8 @@ export default function MapView({
         )}
       </MapContainer>
 
-      {isPicker && onChange && <LocateMeControl onLocate={onChange} />}
+      {/* map && guard: the ref callback fires after mount, so on the first render `map` is null. */}
+      {isPicker && onChange && map && <LocateMeControl map={map} onLocate={onChange} />}
     </div>
   );
 }

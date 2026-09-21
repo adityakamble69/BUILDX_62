@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Bell, FileText, Menu, X } from 'lucide-react';
+import { Bell, ClipboardCheck, FileText, Menu, ShieldCheck, X } from 'lucide-react';
 import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/nextjs';
 import Logo from '@/components/layout/Logo';
 import Button from '@/components/ui/Button';
@@ -17,14 +17,25 @@ const NAV_LINKS = [
 ];
 
 /**
- * Auth state comes from Clerk. `unreadNotifications` is passed down by `SiteChrome` from
- * `NotificationContext` (Phase 6), which polls `GET /me/notifications/unread-count`.
+ * Role-aware public navbar. Four visual variants driven by Clerk role:
+ *
+ *   Guest   → Sign In + Report an Issue (primary)
+ *   Citizen → My Reports link + Report an Issue (primary)
+ *   Worker  → My Tasks (primary) + My Reports + Report an Issue (secondary)
+ *   Admin   → Admin Panel (primary) + Report an Issue (secondary)
+ *
+ * "Report an Issue" stays visible for workers and admins — they're citizens too, and
+ * letting an admin file a report through the same queue (no privileged path) is the
+ * transparency story.
+ *
  * @param {{ unreadNotifications?: number }} props
  */
 export default function Navbar({ unreadNotifications = 0 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useUser();
-  const isAdmin = user?.publicMetadata?.role === 'admin';
+  const role = user?.publicMetadata?.role;
+  const isAdmin = role === 'admin';
+  const isWorker = role === 'worker';
 
   return (
     <header className="sticky top-0 z-40 h-16 border-b border-border bg-surface">
@@ -33,6 +44,7 @@ export default function Navbar({ unreadNotifications = 0 }) {
           <Logo />
         </Link>
 
+        {/* Desktop nav links — same for everyone. */}
         <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
           {NAV_LINKS.map((link) => (
             <Link
@@ -51,16 +63,9 @@ export default function Navbar({ unreadNotifications = 0 }) {
               My Reports
             </Link>
           </SignedIn>
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className="text-sm font-medium text-primary-600 transition hover:text-primary-700"
-            >
-              Admin
-            </Link>
-          )}
         </nav>
 
+        {/* Desktop actions — role-driven. */}
         <div className="hidden items-center gap-3 md:flex">
           <SignedIn>
             <Link
@@ -79,16 +84,48 @@ export default function Navbar({ unreadNotifications = 0 }) {
               appearance={{ elements: { avatarBox: 'h-9 w-9' } }}
             />
           </SignedIn>
+
           <SignedOut>
             <Button as="a" href="/sign-in" variant="secondary" size="sm">
               Sign In
             </Button>
           </SignedOut>
-          <Button as="a" href="/report/new" variant="primary" size="sm">
-            Report an Issue
-          </Button>
+
+          {/* ADMIN — Admin Panel is the primary action; Report an Issue stays as secondary. */}
+          {isAdmin && (
+            <>
+              <Button as="a" href="/report/new" variant="secondary" size="sm">
+                Report an Issue
+              </Button>
+              <Button as="a" href="/admin" variant="primary" size="sm">
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                Admin Panel
+              </Button>
+            </>
+          )}
+
+          {/* WORKER — My Tasks is the primary action; Report an Issue stays as secondary. */}
+          {isWorker && (
+            <>
+              <Button as="a" href="/report/new" variant="secondary" size="sm">
+                Report an Issue
+              </Button>
+              <Button as="a" href="/worker/tasks" variant="primary" size="sm">
+                <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
+                My Tasks
+              </Button>
+            </>
+          )}
+
+          {/* CITIZEN and GUEST — Report an Issue is the primary action. */}
+          {!isAdmin && !isWorker && (
+            <Button as="a" href="/report/new" variant="primary" size="sm">
+              Report an Issue
+            </Button>
+          )}
         </div>
 
+        {/* Mobile: avatar + hamburger. Role-specific actions live in the drawer. */}
         <div className="flex items-center gap-2 md:hidden">
           <SignedIn>
             <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: 'h-8 w-8' } }} />
@@ -105,7 +142,7 @@ export default function Navbar({ unreadNotifications = 0 }) {
         </div>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — role-aware actions. */}
       <div
         className={cn(
           'absolute inset-x-0 top-16 border-b border-border bg-surface shadow-md transition-all md:hidden',
@@ -123,17 +160,27 @@ export default function Navbar({ unreadNotifications = 0 }) {
               {link.label}
             </Link>
           ))}
-          {isAdmin && (
-            <Link
-              href="/admin"
-              onClick={() => setMenuOpen(false)}
-              className="flex h-11 items-center rounded-md px-3 text-base font-medium text-primary-600 hover:bg-bg"
-            >
-              Admin
-            </Link>
-          )}
-          <div className="mt-2 border-t border-border pt-3">
+
+          <div className="mt-2 flex flex-col gap-1 border-t border-border pt-3">
             <SignedIn>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex h-11 items-center gap-3 rounded-md bg-primary-50 px-3 text-base font-semibold text-primary-700 hover:bg-primary-50/80"
+                >
+                  <ShieldCheck className="h-5 w-5" aria-hidden="true" /> Admin Panel
+                </Link>
+              )}
+              {isWorker && (
+                <Link
+                  href="/worker/tasks"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex h-11 items-center gap-3 rounded-md bg-primary-50 px-3 text-base font-semibold text-primary-700 hover:bg-primary-50/80"
+                >
+                  <ClipboardCheck className="h-5 w-5" aria-hidden="true" /> My Tasks
+                </Link>
+              )}
               <Link
                 href="/my-reports"
                 onClick={() => setMenuOpen(false)}
@@ -149,25 +196,33 @@ export default function Navbar({ unreadNotifications = 0 }) {
                 <Bell className="h-5 w-5" aria-hidden="true" /> Notifications
               </Link>
             </SignedIn>
+
             <SignedOut>
               <Button as="a" href="/sign-in" variant="secondary" fullWidth>
                 Sign In
               </Button>
             </SignedOut>
+
+            <Button as="a" href="/report/new" variant="secondary" fullWidth>
+              Report an Issue
+            </Button>
           </div>
         </nav>
       </div>
 
-      {/* Floating "Report an issue" CTA, mobile only (design.md §13). */}
-      <Button
-        as="a"
-        href="/report/new"
-        variant="accent"
-        className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-30 h-14 w-14 rounded-full p-0 text-2xl shadow-lg md:hidden"
-        aria-label="Report an issue"
-      >
-        +
-      </Button>
+      {/* Floating mobile FAB — "Report an Issue". Shown for everyone except admins, whose
+          primary action on mobile is the Admin Panel link in the drawer. */}
+      {!isAdmin && (
+        <Button
+          as="a"
+          href="/report/new"
+          variant="accent"
+          className="fixed bottom-[calc(1.5rem + env(safe-area-inset-bottom))] right-4 z-30 h-14 w-14 rounded-full p-0 text-2xl shadow-lg md:hidden"
+          aria-label="Report an issue"
+        >
+          +
+        </Button>
+      )}
     </header>
   );
 }

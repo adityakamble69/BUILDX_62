@@ -1,18 +1,20 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Camera, ImagePlus, Loader2, X } from 'lucide-react';
+import { Camera, ImagePlus, Loader2, Upload, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { compressImage } from '@/lib/utils/compressImage';
 import { useToast } from '@/lib/context/ToastContext';
+import { cn } from '@/lib/utils/cn';
 
 const MAX_PHOTOS = 3; // rules.md §7 / database.md §4
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
- * Step 1 — photos. Files are compressed here (rules.md §16: ≤ 1 MB, ≤ 1600 px wide) rather
- * than at submit time, so the wizard already holds upload-ready blobs and the user sees the
- * cost of a huge photo immediately instead of at the end of the flow.
+ * Step 1 — photos. Files are compressed here (rules.md §16: ≤ 1 MB, ≤ 1600 px wide) so the
+ * wizard already holds upload-ready blobs. Primary UI is a dashed drop zone (click or
+ * drag-and-drop); "Take a photo" is kept as a separate small button because that's the
+ * camera-specific input on mobile and the drag zone can't trigger it.
  *
  * @param {{
  *  photos: Array<{ id: string, blob: Blob, previewUrl: string }>,
@@ -24,14 +26,16 @@ export default function PhotoStep({ photos, onChange }) {
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const [working, setWorking] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
-  async function handleFiles(event) {
-    const picked = Array.from(event.target.files ?? []);
-    event.target.value = ''; // let the same file be re-picked after a removal
+  async function handleFiles(files) {
+    const picked = Array.from(files ?? []);
     if (picked.length === 0) return;
 
     const room = MAX_PHOTOS - photos.length;
-    if (picked.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added`, 'warning');
+    if (picked.length > room) {
+      toast(`Only ${room} more photo${room === 1 ? '' : 's'} can be added`, 'warning');
+    }
 
     setWorking(true);
     const added = [];
@@ -42,7 +46,11 @@ export default function PhotoStep({ photos, onChange }) {
       }
       try {
         const blob = await compressImage(file);
-        added.push({ id: `${file.name}-${Date.now()}-${added.length}`, blob, previewUrl: URL.createObjectURL(blob) });
+        added.push({
+          id: `${file.name}-${Date.now()}-${added.length}`,
+          blob,
+          previewUrl: URL.createObjectURL(blob),
+        });
       } catch {
         toast(`Could not process ${file.name}`, 'danger');
       }
@@ -50,6 +58,29 @@ export default function PhotoStep({ photos, onChange }) {
     setWorking(false);
 
     if (added.length > 0) onChange([...photos, ...added]);
+  }
+
+  async function handleInputChange(event) {
+    const files = event.target.files;
+    event.target.value = '';
+    await handleFiles(files);
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    if (!full && !working) setDragActive(true);
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    setDragActive(false);
+  }
+
+  async function handleDrop(e) {
+    e.preventDefault();
+    setDragActive(false);
+    if (full || working) return;
+    await handleFiles(e.dataTransfer.files);
   }
 
   function remove(id) {
@@ -65,22 +96,77 @@ export default function PhotoStep({ photos, onChange }) {
       <div>
         <h2 className="text-xl font-semibold">Add photos</h2>
         <p className="mt-1 text-sm text-ink-muted">
-          At least one photo, up to {MAX_PHOTOS}. They are resized on your device before upload, so a
-          slow connection is fine.
+          At least one photo, up to {MAX_PHOTOS}. They are resized on your device before upload,
+          so a slow connection is fine.
         </p>
       </div>
 
+      {!full && (
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          disabled={working}
+          className={cn(
+            'flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition',
+            dragActive
+              ? 'border-primary-600 bg-primary-50'
+              : 'border-border bg-bg hover:border-primary-600/60 hover:bg-primary-50/40',
+            working && 'opacity-60',
+          )}
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-50 text-primary-600">
+            {working ? (
+              <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
+            ) : (
+              <Upload className="h-6 w-6" aria-hidden="true" />
+            )}
+          </span>
+          <span className="text-sm font-semibold text-ink">
+            {working ? 'Preparing photos…' : 'Click to upload or drag & drop'}
+          </span>
+          <span className="text-xs text-ink-subtle">JPG, PNG, WebP · Max 5 MB each</span>
+        </button>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => cameraRef.current?.click()}
+          disabled={full || working}
+        >
+          <Camera className="h-4 w-4" aria-hidden="true" />
+          Take a photo
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => fileRef.current?.click()}
+          disabled={full || working}
+        >
+          <ImagePlus className="h-4 w-4" aria-hidden="true" />
+          Choose from device
+        </Button>
+      </div>
+
       {photos.length > 0 && (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <ul className="grid grid-cols-3 gap-3">
           {photos.map((photo, i) => (
-            <li key={photo.id} className="relative overflow-hidden rounded-lg border border-border">
+            <li key={photo.id} className="relative overflow-hidden rounded-lg border border-border bg-bg">
               {/* eslint-disable-next-line @next/next/no-img-element -- blob: preview, next/image can't optimise it */}
-              <img src={photo.previewUrl} alt={`Selected photo ${i + 1}`} className="aspect-video w-full object-cover" />
+              <img
+                src={photo.previewUrl}
+                alt={`Selected photo ${i + 1}`}
+                className="aspect-square w-full object-cover"
+              />
               <button
                 type="button"
                 onClick={() => remove(photo.id)}
                 aria-label={`Remove photo ${i + 1}`}
-                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface text-ink-muted shadow-md hover:text-danger"
+                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-surface/90 text-ink-muted shadow-md hover:bg-surface hover:text-danger"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -89,26 +175,8 @@ export default function PhotoStep({ photos, onChange }) {
         </ul>
       )}
 
-      <div className="flex flex-wrap gap-3">
-        <Button variant="secondary" onClick={() => cameraRef.current?.click()} disabled={full || working}>
-          <Camera className="h-4 w-4" aria-hidden="true" />
-          Take a photo
-        </Button>
-        <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={full || working}>
-          <ImagePlus className="h-4 w-4" aria-hidden="true" />
-          Choose from device
-        </Button>
-        {working && (
-          <span className="inline-flex items-center gap-2 self-center text-sm text-ink-muted">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Preparing photos…
-          </span>
-        )}
-      </div>
-
       {full && <p className="text-xs text-ink-subtle">Maximum of {MAX_PHOTOS} photos reached.</p>}
 
-      {/* Labels are visually hidden: the two buttons above are the real, larger controls. */}
       <label className="sr-only" htmlFor="report-photo-camera">
         Take a photo
       </label>
@@ -119,7 +187,7 @@ export default function PhotoStep({ photos, onChange }) {
         accept="image/*"
         capture="environment"
         className="sr-only"
-        onChange={handleFiles}
+        onChange={handleInputChange}
       />
       <label className="sr-only" htmlFor="report-photo-files">
         Choose photos from your device
@@ -131,7 +199,7 @@ export default function PhotoStep({ photos, onChange }) {
         accept={ACCEPTED.join(',')}
         multiple
         className="sr-only"
-        onChange={handleFiles}
+        onChange={handleInputChange}
       />
     </div>
   );

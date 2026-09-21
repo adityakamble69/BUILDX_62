@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
-import { authPaths, getCategories } from '@/lib/api';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Download, Search, X } from 'lucide-react';
+import { authPaths } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 import { CATEGORY_LABELS } from '@/lib/utils/categories';
+import { getSeverityLabel } from '@/lib/utils/severity';
 import { STATUS_META } from '@/components/ui/StatusBadge';
 import AdminReportsTable from '@/components/admin/AdminReportsTable';
 import EmptyState from '@/components/ui/EmptyState';
@@ -31,21 +33,70 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 20;
 
-/**
- * `/admin/reports` — full table with filters and sorting by upvotes (phases.md Phase 7).
- * `GET /admin/departments` doubles as the department filter's option list — it's the same
- * data the departments management page uses, just read here instead of managed.
- */
-export default function AdminReportsPage() {
-  const { request, isLoaded } = useApi();
+/** Escapes a CSV cell (RFC 4180: wrap in quotes, double any internal quotes). */
+function csvCell(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
 
+/** Builds a CSV from the currently loaded rows and triggers a browser download. */
+function exportRowsToCsv(rows) {
+  const header = [
+    'Report ID',
+    'Title',
+    'Category',
+    'Area',
+    'Status',
+    'Severity',
+    'Upvotes',
+    'Department',
+    'Created',
+  ];
+  const lines = [
+    header.join(','),
+    ...rows.map((r) =>
+      [
+        r.id,
+        r.title,
+        r.category?.slug ?? '',
+        r.area_name ?? '',
+        r.status,
+        getSeverityLabel(r.severity),
+        r.upvote_count,
+        r.department?.name ?? '',
+        r.created_at,
+      ]
+        .map(csvCell)
+        .join(','),
+    ),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `civic-fix-reports-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function AdminReportsPageInner() {
+  const { request, isLoaded } = useApi();
+  const searchParams = useSearchParams();
+
+  // Initial state seeded from the URL so the topbar search lands here correctly.
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
   const [department, setDepartment] = useState('');
   const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
 
-  const [departmentOptions, setDepartmentOptions] = useState([{ value: '', label: 'All Departments' }]);
+  const [departmentOptions, setDepartmentOptions] = useState([
+    { value: '', label: 'All Departments' },
+  ]);
   const [reports, setReports] = useState(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState(false);
@@ -74,6 +125,7 @@ export default function AdminReportsPage() {
         category: category || undefined,
         status: status || undefined,
         department: department || undefined,
+        search: search.trim() || undefined,
         sort,
         page,
         pageSize: PAGE_SIZE,
@@ -91,14 +143,15 @@ export default function AdminReportsPage() {
     return () => {
       active = false;
     };
-  }, [isLoaded, category, status, department, sort, page, request]);
+  }, [isLoaded, category, status, department, search, sort, page, request]);
 
-  const hasActiveFilters = category || status || department || sort !== 'newest';
+  const hasActiveFilters = category || status || department || search || sort !== 'newest';
 
   function clearFilters() {
     setCategory('');
     setStatus('');
     setDepartment('');
+    setSearch('');
     setSort('newest');
     setPage(1);
   }
@@ -111,13 +164,39 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
-      <div>
-        <h1 className="font-heading text-[28px] font-bold leading-9">Reports</h1>
-        <p className="mt-1 text-ink-muted">Every report in the system, filterable and sortable.</p>
+    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-[28px] font-bold leading-9">Reports</h1>
+          <p className="mt-1 text-ink-muted">Manage and update all civic issue reports.</p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => exportRowsToCsv(reports ?? [])}
+          disabled={!reports?.length}
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Export CSV
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
+        <div className="relative min-w-[16rem] flex-1">
+          <input
+            type="search"
+            placeholder="Search by title or area…"
+            value={search}
+            onChange={(e) => updateFilter(setSearch)(e.target.value)}
+            aria-label="Search reports"
+            className="h-11 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-ink-subtle focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20"
+            suppressHydrationWarning
+          />
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle"
+            aria-hidden="true"
+          />
+        </div>
         <div className="w-40">
           <Select
             label="Category"
@@ -177,7 +256,7 @@ export default function AdminReportsPage() {
       {!error && reports?.length === 0 && (
         <EmptyState
           title="No reports match these filters"
-          description="Try a different category, status or department."
+          description="Try a different category, status, department or search term."
           actionLabel={hasActiveFilters ? 'Clear filters' : undefined}
           onAction={hasActiveFilters ? clearFilters : undefined}
         />
@@ -190,5 +269,14 @@ export default function AdminReportsPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** Suspense wrapper — `useSearchParams()` requires one at build time in App Router. */
+export default function AdminReportsPage() {
+  return (
+    <Suspense fallback={<Skeleton className="mx-auto h-96 w-full max-w-[1400px]" />}>
+      <AdminReportsPageInner />
+    </Suspense>
   );
 }

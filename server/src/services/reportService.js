@@ -186,14 +186,22 @@ const ADMIN_REPORT_SELECT = `
 `;
 
 /**
- * @param {{ status?, category?, department?, sort: 'newest'|'upvotes', page, pageSize }} filters
+ * @param {{ status?, category?, department?, search?, sort: 'newest'|'upvotes'|'severity', page, pageSize }} filters
  *   `department` is a department id (int), unlike `category`, which is a slug.
+ *   `search` is a case-insensitive substring match against title OR area_name.
  */
 export async function listReportsAdmin(filters) {
   let query = supabase.from('admin_reports_view').select(ADMIN_REPORT_SELECT, { count: 'exact' });
 
   if (filters.status) query = query.eq('status', filters.status);
   if (filters.department) query = query.eq('department_id', filters.department);
+  if (filters.search) {
+    // PostgREST's `.or()` takes a mini-DSL: `col.ilike.%pattern%`. Commas and parens
+    // in the user's query would otherwise terminate the OR expression, so they're
+    // stripped (they carry no meaning in a substring search anyway).
+    const safe = filters.search.replace(/[,()]/g, '');
+    if (safe) query = query.or(`title.ilike.%${safe}%,area_name.ilike.%${safe}%`);
+  }
   if (filters.category) {
     const categoryId = await getCategoryIdBySlug(filters.category);
     query = query.eq('category_id', categoryId);

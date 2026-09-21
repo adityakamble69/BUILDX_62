@@ -46,7 +46,13 @@ export default function ReportsPage() {
     const controller = new AbortController();
     setError(false);
     listReports(
-      { category: category || undefined, status: status || undefined, sort, page, pageSize: PAGE_SIZE },
+      {
+        category: category || undefined,
+        status: status || undefined,
+        sort,
+        page,
+        pageSize: PAGE_SIZE,
+      },
       controller.signal,
     )
       .then((res) => {
@@ -69,8 +75,6 @@ export default function ReportsPage() {
     setPage(1);
   }
 
-  // Any filter/sort change invalidates the current page (e.g. page 3 may no longer
-  // exist under the new filter) — jump back to page 1 rather than showing an empty page.
   function updateFilter(setter) {
     return (value) => {
       setter(value);
@@ -79,10 +83,15 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className={cn('flex w-full flex-col gap-6 py-8', PAGE_PADDING)}>
-      <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Reports</h1>
-        <p className="mt-1 text-ink-muted">Browse civic issues reported across the city.</p>
+    <div className={cn('flex w-full flex-col gap-6 py-8 md:py-10', PAGE_PADDING)}>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-bold md:text-3xl">Reports</h1>
+          <p className="mt-1 text-ink-muted">Browse civic issues reported across the city.</p>
+        </div>
+        <span className="text-sm text-ink-muted">
+          {reports && !error ? `${total} report${total === 1 ? '' : 's'}` : ''}
+        </span>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -119,9 +128,6 @@ export default function ReportsPage() {
             Clear
           </Button>
         )}
-        <span className="ml-auto self-center text-sm text-ink-muted">
-          {reports && !error ? `${total} report${total === 1 ? '' : 's'}` : ''}
-        </span>
       </div>
 
       {error && (
@@ -132,7 +138,7 @@ export default function ReportsPage() {
       )}
 
       {!error && reports === null && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <ReportCardSkeleton key={i} />
           ))}
@@ -150,7 +156,7 @@ export default function ReportsPage() {
 
       {!error && reports?.length > 0 && (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {reports.map((r) => (
               <ReportCard
                 key={r.id}

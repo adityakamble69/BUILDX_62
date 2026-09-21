@@ -1,25 +1,38 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireWorker } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { paginationSchema } from '../utils/pagination.js';
-import { notificationsReadSchema } from '../validators/notificationValidators.js';
 import {
   getMe,
   getMyReportsList,
   getMyNotifications,
   getMyUnreadNotificationCount,
   patchMyNotificationsRead,
+  getMyTasks,
+  postMyTaskSubmission,
 } from '../controllers/meController.js';
+import {
+  workerSubmissionSchema,
+  workerTaskIdParamsSchema,
+} from '../validators/meValidators.js';
 
 const router = Router();
-
 router.use(requireAuth);
 
-router.get('/', asyncHandler(getMe));
-router.get('/reports', validate(paginationSchema, 'query'), asyncHandler(getMyReportsList));
+router.get('/', getMe);
+router.get('/reports', asyncHandler(getMyReportsList));
+router.get('/notifications', asyncHandler(getMyNotifications));
 router.get('/notifications/unread-count', asyncHandler(getMyUnreadNotificationCount));
-router.get('/notifications', validate(paginationSchema, 'query'), asyncHandler(getMyNotifications));
-router.patch('/notifications/read', validate(notificationsReadSchema), asyncHandler(patchMyNotificationsRead));
+router.patch('/notifications/read', asyncHandler(patchMyNotificationsRead));
+
+// Worker-only routes. `requireWorker` rejects admins and citizens alike.
+router.get('/tasks', requireWorker, asyncHandler(getMyTasks));
+router.post(
+  '/tasks/:id/submission',
+  requireWorker,
+  validate(workerTaskIdParamsSchema, 'params'),
+  validate(workerSubmissionSchema),
+  asyncHandler(postMyTaskSubmission),
+);
 
 export default router;

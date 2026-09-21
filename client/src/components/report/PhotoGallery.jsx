@@ -9,9 +9,8 @@ import { cn } from '@/lib/utils/cn';
 
 /**
  * Report photos (max 3 "before" + 1 admin "after", database.md §4) as one main image
- * with a thumbnail strip. `images` is the raw `report_images` join from `GET /reports/:id`:
- * [{ id, storage_path, kind, created_at }]. Before photos come first so the main image
- * defaults to what the citizen reported, not the resolution shot.
+ * with a thumbnail strip and a photo counter (mockup). Before photos come first so the
+ * main image defaults to what the citizen reported, not the resolution shot.
  *
  * @param {{ images?: Array<{ id: string, storage_path: string, kind?: string }>, title: string }} props
  */
@@ -50,6 +49,11 @@ export default function PhotoGallery({ images = [], title }) {
             After fix
           </Badge>
         )}
+        {photos.length > 1 && (
+          <span className="absolute bottom-3 right-3 rounded-full bg-secondary-600/75 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur">
+            {activeIndex + 1}/{photos.length}
+          </span>
+        )}
       </div>
 
       {photos.length > 1 && (
@@ -63,7 +67,9 @@ export default function PhotoGallery({ images = [], title }) {
                 aria-current={i === activeIndex}
                 className={cn(
                   'relative h-16 w-24 overflow-hidden rounded-md border-2 transition',
-                  i === activeIndex ? 'border-primary-600' : 'border-border hover:border-ink-subtle',
+                  i === activeIndex
+                    ? 'border-primary-600'
+                    : 'border-border hover:border-ink-subtle',
                 )}
               >
                 <Image src={photo.url} alt="" fill sizes="96px" className="object-cover" />

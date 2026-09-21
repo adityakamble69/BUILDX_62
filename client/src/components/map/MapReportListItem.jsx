@@ -8,12 +8,6 @@ import { timeAgo } from '@/lib/utils/timeAgo';
  * Deliberately not a single big `<Link>` (like `ReportCard`) — clicking the row should
  * re-center the map, while the chevron is the only thing that navigates to the detail
  * page, so the two interactions don't collide inside one anchor.
- *
- * @param {{
- *  id: string, title: string, status: string, category?: string, areaName?: string,
- *  upvoteCount?: number, createdAt: string, thumbnailUrl?: string,
- *  active?: boolean, onFocus: () => void,
- * }} props
  */
 export default function MapReportListItem({
   id,
@@ -38,11 +32,11 @@ export default function MapReportListItem({
           onFocus();
         }
       }}
-      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
         active ? 'border-primary-600 bg-primary-50' : 'border-border bg-surface hover:bg-bg'
       }`}
     >
-      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md bg-bg">
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-bg">
         {thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- fixed small thumbnail, next/image isn't worth it here.
           <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
@@ -54,19 +48,18 @@ export default function MapReportListItem({
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="line-clamp-1 text-sm font-semibold text-ink">{title}</p>
-          <StatusBadge status={status} className="shrink-0" />
-        </div>
-        <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">
+        <p className="line-clamp-2 text-sm font-semibold leading-snug text-ink">{title}</p>
+        <p className="mt-0.5 line-clamp-1 text-xs text-ink-subtle">
           {[category && getCategoryLabel(category), areaName].filter(Boolean).join(' · ')}
         </p>
-        <div className="mt-1 flex items-center gap-3 text-xs text-ink-subtle">
-          <span className="inline-flex items-center gap-1">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <StatusBadge status={status} />
+          <span className="inline-flex items-center gap-0.5 text-xs text-ink-subtle">
             <ArrowUp className="h-3 w-3" aria-hidden="true" />
             {upvoteCount}
           </span>
-          <span>{timeAgo(createdAt)}</span>
+          <span className="text-xs text-ink-subtle">·</span>
+          <span className="text-xs text-ink-subtle">{timeAgo(createdAt)}</span>
         </div>
       </div>
 
@@ -74,7 +67,7 @@ export default function MapReportListItem({
         href={`/reports/${id}`}
         onClick={(e) => e.stopPropagation()}
         aria-label={`View details for ${title}`}
-        className="shrink-0 rounded p-1 text-ink-subtle hover:bg-border/60 hover:text-ink"
+        className="shrink-0 self-center rounded p-1 text-ink-subtle hover:bg-border/60 hover:text-ink"
       >
         <ChevronRight className="h-4 w-4" aria-hidden="true" />
       </Link>

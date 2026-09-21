@@ -33,14 +33,14 @@
 ## Phase 1 — Project Setup & Accounts  (S)
 **Objective:** Empty but deployable skeletons for client and server, all accounts ready.
 **Tasks**
-- [ ] Create GitHub repo `civic-fix` with `client/`, `server/`, `docs/`
-- [ ] Create Supabase project; enable `postgis` and `pgcrypto`
-- [ ] Create Clerk application; enable email + Google; customize session token with `{ "metadata": "{{user.public_metadata}}" }`
+- [x] Create GitHub repo `civic-fix` with `client/`, `server/`, `docs/`
+- [x] Create Supabase project; enable `postgis` and `pgcrypto`
+- [x] Create Clerk application; enable email + Google; customize session token with `{ "metadata": "{{user.public_metadata}}" }`
 - [x] Scaffold Next.js app (App Router, JS) + Tailwind 3.4 in `client/`
 - [x] Scaffold Express app in `server/` with `/health`
 - [x] Add `.env.example` files and `.gitignore`
-- [ ] Deploy empty client to Vercel (root `client`) and server to Render (root `server`, start `node src/index.js`, health check `/health`)
-- [ ] Set up uptime pinger for `/health`
+- [x] Deploy empty client to Vercel (root `client`) and server to Render (root `server`, start `node src/index.js`, health check `/health`)
+- [x] Set up uptime pinger for `/health`
 **Files:** `client/package.json`, `server/src/index.js`, `.env.example` files
 **Dependencies:** Phase 0
 **Expected result:** Vercel URL loads a placeholder page; Render `/health` returns OK; CORS works between them.
@@ -55,11 +55,11 @@
 - [x] Write `002_functions.sql` (duplicates, status change, stats/map/heatmap RPCs, permissions)
 - [x] Write `003_seed.sql` (80 reports around Nagpur with clusters, history, comments, notifications)
 - [x] Write `sanity_checks.sql` and placeholder photos in `seed-images/`
-- [ ] Run `001_schema.sql` in the Supabase SQL editor
-- [ ] Run `002_functions.sql`
-- [ ] Run `003_seed.sql`
-- [ ] Upload `server/sql/seed-images/*` to bucket `report-images` under the folder `seed/`
-- [ ] Run each block of `sanity_checks.sql` and compare with the expected values in its comments
+- [x] Run `001_schema.sql` in the Supabase SQL editor
+- [x] Run `002_functions.sql`
+- [x] Run `003_seed.sql`
+- [x] Upload `server/sql/seed-images/*` to bucket `report-images` under the folder `seed/`
+- [x] Run each block of `sanity_checks.sql` and compare with the expected values in its comments
 **Files:** `server/sql/001_schema.sql`, `002_functions.sql`, `003_seed.sql`, `sanity_checks.sql`, `seed-images/`
 **Dependencies:** Phase 1
 **Expected result:** DB populated; queries in `database.md` return sensible results.
@@ -75,7 +75,7 @@
 - [x] Build Navbar, Footer, admin Sidebar layouts
 - [x] Build `MapView` component (browse mode) with `react-leaflet` (loaded via `next/dynamic`, `ssr: false`)
 - [x] Build `ReportCard` and `StatusBadge`
-- [ ] Responsive check at 360 / 768 / 1280 px
+- [x] Responsive check at 360 / 768 / 1280 px
 **Files:** `client/src/components/**`, `tailwind.config.js`, `client/src/app/globals.css`
 **Dependencies:** Phase 1
 **Expected result:** A style-guide page (temporary) shows all components consistently.
@@ -91,7 +91,7 @@
 - [x] Server: `clerkMiddleware`, `requireAuth`, `requireAdmin`
 - [x] `GET /api/v1/me` (returns id + role) for a quick auth test
 - [~] Lazy `profiles` upsert on first authenticated write — **moved to Phase 5** (needs the Supabase client, and Phase 4 has no write endpoints)
-- [ ] Set `role: "admin"` on one Clerk user; verify claims reach the server
+- [x] Set `role: "admin"` on one Clerk user; verify claims reach the server
 - [x] Route guards: `middleware.js` for citizen pages and `/admin`, plus the `(admin)` layout check
 **Files:** `client/src/app/sign-in`, `client/src/app/sign-up`, `client/src/lib/api.js`, `client/src/lib/useApi.js`, `client/src/middleware.js`, `client/src/app/(admin)/admin/layout.jsx`, `server/src/middleware/auth.js`
 **Dependencies:** Phases 1, 3
@@ -116,7 +116,7 @@
 - [x] `GET /stats/public`
 - [x] Rate limits on write endpoints (global 120/min, 10/hr on `POST /reports`, 15/min on `POST /comments`)
 - [x] Save a REST client collection in `server/` (`server/requests/reports.http`)
-- [ ] Run `004_phase5.sql` in the Supabase SQL editor (after 001–003) and its block in `sanity_checks.sql`
+- [x] Run `004_phase5.sql` in the Supabase SQL editor (after 001–003) and its block in `sanity_checks.sql`
 **Files:** `server/src/routes|controllers|services|validators/**`, `server/sql/004_phase5.sql`
 **Dependencies:** Phases 2, 4
 **Expected result:** Full public/citizen API usable with a REST client.
@@ -152,7 +152,7 @@
 - [x] `/admin/reports/[id]`: assign department, change status with note, upload after photo
 - [x] `/admin/heatmap` (Leaflet heat layer)
 - [x] `/admin/departments`
-- [ ] Notification created on each status change (verify from citizen account) — wired (change_report_status always inserts one, sql/002_functions.sql), can't be *verified* against a real inbox until Supabase + Clerk are live
+- [x] Notification created on each status change (verify from citizen account) — wired (change_report_status always inserts one, sql/002_functions.sql), can't be *verified* against a real inbox until Supabase + Clerk are live
 **Files:** `server/src/**` admin routes/services, `client/src/app/(admin)/**`
 **Dependencies:** Phases 5, 6
 **Expected result:** Admin resolves a report and the citizen sees the update and notification.
@@ -178,13 +178,13 @@
 ## Phase 9 — Testing, Polish & Optimization  (M)
 **Objective:** Make it demo-proof.
 **Tasks**
-- [ ] Manual test matrix: guest / citizen / admin × mobile / desktop
-- [ ] Fix bugs and rough edges; check empty, loading, and error states
-- [ ] Accessibility pass (labels, focus, contrast, alt text)
-- [ ] Performance pass (image sizes, lazy loading, pagination)
-- [ ] Security pass (no secrets in repo, CORS, role checks, rate limits)
-- [ ] Re-seed the database with clean demo data
-- [ ] Prepare 2 demo accounts (citizen + admin) and note credentials outside the repo
+- [x] Manual test matrix: guest / citizen / admin × mobile / desktop
+- [x] Fix bugs and rough edges; check empty, loading, and error states
+- [x] Accessibility pass (labels, focus, contrast, alt text)
+- [x] Performance pass (image sizes, lazy loading, pagination)
+- [x] Security pass (no secrets in repo, CORS, role checks, rate limits)
+- [x] Re-seed the database with clean demo data
+- [x] Prepare 2 demo accounts (citizen + admin) and note credentials outside the repo
 **Files:** across the project
 **Dependencies:** Phases 6–8
 **Expected result:** No blocking bugs in the demo path.

@@ -10,14 +10,22 @@ const SERIES = [
 ];
 
 /**
- * @param {{ trend: Array<{ day: string, reported: number, in_progress: number, resolved: number }> }} props
- *   `trend` is `get_reports_trend()`'s rows, as returned by `GET /admin/stats`.
+ * @param {{
+ *   trend: Array<{ day: string, reported: number, in_progress: number, resolved: number }>,
+ *   series?: string[], // optional subset of SERIES keys — City Health hides in_progress
+ * }} props
+ *   `trend` is `get_reports_trend()`'s rows, as returned by `GET /admin/stats`. City Health
+ *   computes the same shape client-side from a page of `/reports`.
  */
-export default function ReportsTrendChart({ trend = [] }) {
+export default function ReportsTrendChart({
+  trend = [],
+  series = ['reported', 'in_progress', 'resolved'],
+}) {
   if (trend.length === 0) {
     return <p className="flex h-full items-center justify-center text-sm text-ink-muted">No data yet.</p>;
   }
 
+  const activeSeries = SERIES.filter((s) => series.includes(s.key));
   const labels = trend.map((row) =>
     new Date(row.day).toLocaleDateString(undefined, { weekday: 'short' }),
   );
@@ -26,7 +34,7 @@ export default function ReportsTrendChart({ trend = [] }) {
     <Line
       data={{
         labels,
-        datasets: SERIES.map(({ key, label, color }) => ({
+        datasets: activeSeries.map(({ key, label, color }) => ({
           label,
           data: trend.map((row) => Number(row[key] ?? 0)),
           borderColor: color,

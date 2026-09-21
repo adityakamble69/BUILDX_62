@@ -28,7 +28,16 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <ClerkProvider appearance={clerkAppearance}>
-      <html lang="en" className={`${heading.variable} ${body.variable}`}>
+      {/* suppressHydrationWarning: browser extensions (LastPass, Grammarly, etc.) stamp
+          extra class names onto <html> before React hydrates, which trips a false-positive
+          mismatch on the font-variable className below. Same reasoning as memory.md D32,
+          which added it to form fields for the fdprocessedid attribute. This only
+          suppresses the warning on this element's own attributes — the subtree is untouched. */}
+      <html
+        lang="en"
+        className={`${heading.variable} ${body.variable}`}
+        suppressHydrationWarning
+      >
         <body>
           <ToastProvider>
             <NotificationProvider>

@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Stepper from '@/components/report/wizard/Stepper';
@@ -16,21 +18,20 @@ import { useToast } from '@/lib/context/ToastContext';
 import { uploadReportImages } from '@/lib/utils/uploadReportImages';
 import { blobToBase64 } from '@/lib/utils/blobToBase64';
 
-// Order follows phases.md: photo → location → details → duplicate check → submit.
 const STEPS = ['Photos', 'Location', 'Details', 'Review'];
-const DUPLICATE_RADIUS_M = 50; // matches nearby_duplicates' default (sql/002_functions.sql)
+const DUPLICATE_RADIUS_M = 50;
 
 /**
- * `/report/new` — the citizen reporting flow. `middleware.js` already redirects guests to
- * sign-in, so this page assumes a signed-in user.
- *
- * Photos are compressed and held as blobs while the user moves through the steps, and only
- * uploaded on submit: abandoning the wizard then leaves nothing orphaned in Storage.
+ * `/report/new` — the citizen reporting flow. Admins can also file a report (they're
+ * citizens too); on submit they're redirected to the admin management view rather than
+ * the public detail page, since that's where they'd act next.
  */
 export default function NewReportPage() {
   const router = useRouter();
   const { request, isLoaded } = useApi();
   const { toast } = useToast();
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.role === 'admin';
 
   const [step, setStep] = useState(0);
   const [photos, setPhotos] = useState([]);
@@ -43,22 +44,14 @@ export default function NewReportPage() {
   const [duplicatesLoading, setDuplicatesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Phase 8 (PRD FR5): fetched once, in the background, as soon as a photo exists — by the
-  // time the citizen reaches the Details step the suggestion is usually already there. Never
-  // re-fetched for the same photo set, and never blocks navigation; a failure or a disabled
-  // deployment just leaves this null and DetailsStep renders nothing extra (rules.md §10).
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const aiRequestedRef = useRef(false);
 
-  // Object URLs created in PhotoStep are freed when the page unmounts (removals free their
-  // own URL there). `photosRef` avoids re-running this effect on every photo change.
   const photosRef = useRef(photos);
   photosRef.current = photos;
   useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl)), []);
 
-  // Duplicate check runs when the Review step opens — by then both the location and the
-  // category are known, which the RPC needs.
   useEffect(() => {
     if (step !== 3 || !isLoaded || !location || !details.category) return undefined;
 
@@ -76,7 +69,6 @@ export default function NewReportPage() {
         if (active) setDuplicates(res.data);
       })
       .catch(() => {
-        // A failed duplicate check must not block reporting — it's advisory only.
         if (active) setDuplicates([]);
       })
       .finally(() => {
@@ -97,7 +89,6 @@ export default function NewReportPage() {
     });
   }, []);
 
-  /** Client-side validation is UX only; the server validates again (rules.md §11). */
   function validateStep(index) {
     if (index === 0) {
       if (photos.length === 0) {
@@ -106,7 +97,6 @@ export default function NewReportPage() {
       }
       return true;
     }
-
     if (index === 1) {
       if (!location) {
         toast('Tap the map to pin the location', 'warning');
@@ -114,7 +104,6 @@ export default function NewReportPage() {
       }
       return true;
     }
-
     if (index === 2) {
       const found = {};
       const title = details.title.trim();
@@ -124,7 +113,6 @@ export default function NewReportPage() {
       setErrors(found);
       return Object.keys(found).length === 0;
     }
-
     return true;
   }
 
@@ -134,7 +122,6 @@ export default function NewReportPage() {
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   }
 
-  /** Fires once per wizard session, right after the Photos step is confirmed. */
   function requestAiSuggestion() {
     if (aiRequestedRef.current || photosRef.current.length === 0) return;
     aiRequestedRef.current = true;
@@ -148,7 +135,7 @@ export default function NewReportPage() {
         }),
       )
       .then((res) => setAiSuggestion(res.data.suggestion))
-      .catch(() => setAiSuggestion(null)) // advisory only — never surfaced as an error
+      .catch(() => setAiSuggestion(null))
       .finally(() => setAiLoading(false));
   }
 
@@ -167,24 +154,30 @@ export default function NewReportPage() {
           lng: location.lng,
           areaName: areaName.trim() || undefined,
           imagePaths,
-          // Audit fields (database.md §4) — stored alongside whatever the citizen actually
-          // chose, even when they didn't apply the suggestion or it disagreed with them.
           aiCategory: aiSuggestion?.category,
           aiSeverity: aiSuggestion?.severity,
         },
       });
       toast('Report submitted — thank you!', 'success');
-      router.push(`/reports/${data.id}`);
+      router.push(isAdmin ? `/admin/reports/${data.id}` : `/reports/${data.id}`);
     } catch (err) {
       toast(err?.message || 'Could not submit your report', 'danger');
-      setSubmitting(false); // stay on the step so nothing typed is lost
+      setSubmitting(false);
     }
   }
 
   return (
-    <div className="mx-auto flex max-w-[800px] flex-col gap-6 px-4 py-8 md:px-6">
+    <div className="mx-auto flex max-w-[820px] flex-col gap-6 px-4 py-8 md:px-6">
+      <Link
+        href="/map"
+        className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-ink-muted hover:text-primary-600"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back to Map
+      </Link>
+
       <div>
-        <h1 className="text-2xl font-bold md:text-3xl">Report an issue</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">Report an Issue</h1>
         <p className="mt-1 text-ink-muted">
           Help us keep your city clean and safe. Share the details, a photo and the location.
         </p>
