@@ -40,6 +40,11 @@ export default function Button({
 
   return (
     <Comp
+      // suppressHydrationWarning: browser extensions (LastPass & similar) stamp a
+      // `fdprocessedid` attribute onto interactive elements before React hydrates —
+      // same false positive as memory.md D32/D44. This only silences the warning on
+      // this element; the subtree is untouched.
+      suppressHydrationWarning
       // Buttons rendered as <a> still need the disabled look; real disabling of a link is handled by the caller.
       disabled={as === 'button' ? isDisabled : undefined}
       aria-disabled={isDisabled || undefined}

@@ -31,14 +31,18 @@ const EMPTY = {
 
 /**
  * Assign Task form (design brief §5). Worker dropdown is optional — selecting a worker
- * sets `assignedToId` (a Clerk userId) so the task appears in that worker's `/worker/tasks`
- * dashboard. If no worker is picked, only the free-text `assignedTo` label is stored and
- * the task has no in-app recipient (what the app did before Phase 5-worker).
+ * sets `assignedToId` (a Clerk userId) so the task appears in that worker's
+ * `/worker/tasks` dashboard. If no worker is picked, only the free-text `assignedTo`
+ * label is stored and the task has no in-app recipient.
+ *
+ * Both option lists are fetched behind an `isLoaded` guard — Clerk's session (and
+ * therefore the Bearer token) must exist before hitting `/admin/*`, or the server
+ * returns 401 and the dropdowns render empty.
  *
  * @param {{ defaultReportId?: string, onCreated: () => void }} props
  */
 export default function TaskForm({ defaultReportId, onCreated }) {
-  const { request } = useApi();
+  const { request, isLoaded } = useApi();
   const { toast } = useToast();
 
   const [values, setValues] = useState({ ...EMPTY, reportId: defaultReportId ?? '' });
@@ -48,14 +52,25 @@ export default function TaskForm({ defaultReportId, onCreated }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!isLoaded) return;
+
     request(authPaths.adminDepartments)
       .then((res) => setDepartments(res.data))
-      .catch(() => setDepartments([]));
+      .catch((err) => {
+        console.error('Failed to load departments:', err);
+        setDepartments([]);
+        toast('Could not load departments — is the server running?', 'danger');
+      });
+
     request(authPaths.adminWorkers)
       .then((res) => setWorkers(res.data))
-      .catch(() => setWorkers([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .catch((err) => {
+        // Workers are optional (a task can exist without a worker account), so this
+        // failure is logged but not toasted — the form still works.
+        console.error('Failed to load workers:', err);
+        setWorkers([]);
+      });
+  }, [isLoaded, request, toast]);
 
   function update(patch) {
     setValues((v) => ({ ...v, ...patch }));

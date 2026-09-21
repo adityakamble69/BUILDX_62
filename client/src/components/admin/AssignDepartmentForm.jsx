@@ -11,10 +11,18 @@ import Button from '@/components/ui/Button';
  * PATCH /admin/reports/:id/assign. Departments come from `GET /admin/departments` (every
  * department, including inactive ones — a report already assigned to a department that
  * was since deactivated should still show it, not silently fall back to "unassigned").
- * @param {{ reportId: string, currentDepartmentId?: number | null, onAssigned: (departmentId: number, name: string) => void }} props
+ *
+ * The fetch waits for Clerk's `isLoaded` before firing — otherwise the Bearer token
+ * isn't attached yet and the server returns 401.
+ *
+ * @param {{
+ *   reportId: string,
+ *   currentDepartmentId?: number | null,
+ *   onAssigned: (departmentId: number, name: string) => void,
+ * }} props
  */
 export default function AssignDepartmentForm({ reportId, currentDepartmentId, onAssigned }) {
-  const { request } = useApi();
+  const { request, isLoaded } = useApi();
   const { toast } = useToast();
 
   const [departments, setDepartments] = useState(null);
@@ -22,12 +30,14 @@ export default function AssignDepartmentForm({ reportId, currentDepartmentId, on
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!isLoaded) return;
     request(authPaths.adminDepartments)
       .then((res) => setDepartments(res.data))
-      .catch(() => setDepartments([]));
-    // Only ever needs to run once — the option list itself doesn't change per report.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .catch((err) => {
+        console.error('Failed to load departments:', err);
+        setDepartments([]);
+      });
+  }, [isLoaded, request]);
 
   async function handleSave() {
     if (!value) return;
