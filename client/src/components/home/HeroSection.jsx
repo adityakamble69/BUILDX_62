@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Camera, Users, LineChart, Building2, MapPin } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -26,116 +27,71 @@ const FEATURES = [
 ];
 
 /**
- * Static hero + feature cards, matching the uploaded landing mockup: photo-style city
- * backdrop with a dark left-to-right gradient for text contrast, a value-prop card
- * floating on the right (large screens), and 4 feature cards below.
- *
- * The backdrop is a decorative SVG rather than a licensed photograph — replace the
- * <svg> block with a next/image (with the image host added to next.config's
- * `images.remotePatterns`) if a real hero photo is preferred.
+ * Landing Hero Section featuring the city skyline background photo with high-contrast
+ * readable typography, primary and secondary CTA buttons, and a floating value-prop card.
  */
 export default function HeroSection() {
   return (
     <section>
-      <div className="relative min-h-[440px] overflow-hidden rounded-2xl bg-secondary-600 md:min-h-[520px]">
-        {/* Decorative city backdrop — sky → buildings → green foreground, then a
-            left-to-right dark overlay so the white headline stays readable on any
-            part of the illustration. */}
-        <svg
-          viewBox="0 0 1200 500"
-          preserveAspectRatio="xMidYMid slice"
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full"
-        >
-          <defs>
-            <linearGradient id="heroSky" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#7DD3FC" />
-              <stop offset="55%" stopColor="#BAE6FD" />
-              <stop offset="100%" stopColor="#FEF3C7" />
-            </linearGradient>
-            <linearGradient id="heroOverlay" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#1E293B" stopOpacity="0.94" />
-              <stop offset="45%" stopColor="#1E293B" stopOpacity="0.78" />
-              <stop offset="100%" stopColor="#1E293B" stopOpacity="0.2" />
-            </linearGradient>
-          </defs>
+      {/* City Hero Banner with clean city photo background */}
+      <div className="relative min-h-[460px] overflow-hidden rounded-2xl border border-border/60 bg-slate-100 shadow-sm md:min-h-[500px] lg:min-h-[520px]">
+        {/* Real city skyline photo */}
+        <Image
+          src="/images/hero-bg.png"
+          alt="Civic Fix City Skyline"
+          fill
+          priority
+          sizes="(max-width: 1200px) 100vw, 1400px"
+          className="object-cover object-right md:object-center"
+        />
 
-          <rect width="1200" height="500" fill="url(#heroSky)" />
+        {/* Soft gradient overlay on left for optimal text contrast across all viewports */}
+        <div className="absolute inset-0 bg-gradient-to-r from-surface/95 via-surface/85 to-surface/20 md:via-surface/75 md:to-transparent" />
 
-          {/* Building skyline — mid-tone slate with slight variation. */}
-          {[
-            [20, 220, 70, 280, '#64748B'],
-            [100, 180, 55, 320, '#475569'],
-            [165, 250, 80, 250, '#94A3B8'],
-            [260, 140, 65, 360, '#475569'],
-            [335, 200, 90, 300, '#64748B'],
-            [440, 100, 75, 400, '#334155'],
-            [530, 170, 60, 330, '#64748B'],
-            [600, 130, 85, 370, '#475569'],
-            [700, 210, 70, 290, '#94A3B8'],
-            [780, 160, 100, 340, '#475569'],
-            [895, 240, 60, 260, '#64748B'],
-            [965, 120, 90, 380, '#334155'],
-            [1070, 200, 75, 300, '#64748B'],
-            [1160, 170, 60, 330, '#475569'],
-          ].map(([x, y, w, h, fill], i) => (
-            <rect key={i} x={x} y={y} width={w} height={h} fill={fill} />
-          ))}
-
-          {/* Park / tree line in the foreground. */}
-          <rect y="420" width="1200" height="80" fill="#166534" opacity="0.85" />
-          {Array.from({ length: 20 }).map((_, i) => (
-            <circle key={i} cx={i * 62 + 30} cy={420} r={26 + ((i * 7) % 14)} fill="#14532D" />
-          ))}
-
-          {/* Readability overlay. */}
-          <rect width="1200" height="500" fill="url(#heroOverlay)" />
-        </svg>
-
-        {/* Content */}
-        <div className="relative flex min-h-[440px] max-w-3xl flex-col justify-center gap-5 px-6 py-14 md:min-h-[520px] md:px-12 md:py-20">
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white/90 backdrop-blur">
+        {/* Foreground Content */}
+        <div className="relative flex min-h-[460px] max-w-2xl flex-col justify-center gap-5 px-6 py-12 sm:px-10 md:min-h-[500px] md:px-12 md:py-16 lg:min-h-[520px]">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary-600/20 bg-primary-50/80 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-primary-700 backdrop-blur-sm">
             Cleaner streets · Safer communities · A better tomorrow
           </div>
 
-          <h1 className="text-4xl font-bold leading-[1.05] text-white md:text-[56px]">
-            Fix Your City.
+          <h1 className="font-heading text-3xl font-extrabold leading-[1.1] tracking-tight text-ink sm:text-4xl md:text-5xl lg:text-[54px]">
+            <span className="text-primary-600">Fix Your City.</span>
             <br />
-            One Report at a Time.
+            <span className="text-secondary-600">One Report at a Time.</span>
           </h1>
 
-          <p className="max-w-xl text-base text-white/85 md:text-lg">
+          <p className="max-w-xl text-base font-normal leading-relaxed text-ink-muted md:text-lg">
             Report civic issues like potholes, garbage, broken streetlights, water leaks and
             more. Help make your city cleaner, safer and better for everyone.
           </p>
 
-          <div className="flex flex-wrap gap-3 pt-1">
-            <Button as="a" href="/report/new" size="lg">
-              Report an issue
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button as="a" href="/report/new" variant="primary" size="lg" className="shadow-md hover:shadow-lg">
+              Report an Issue →
             </Button>
             <Button
               as="a"
               href="/map"
               variant="secondary"
               size="lg"
-              className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+              className="border-border bg-surface/90 text-ink shadow-sm backdrop-blur-sm hover:bg-surface hover:border-primary-600/40"
             >
-              <MapPin className="h-4 w-4" aria-hidden="true" />
+              <MapPin className="h-4 w-4 text-primary-600" aria-hidden="true" />
               Explore Map
             </Button>
           </div>
         </div>
 
-        {/* Floating value-prop card on large screens (mockup). */}
-        <div className="pointer-events-none absolute right-10 top-1/2 hidden -translate-y-1/2 lg:block">
-          <div className="w-64 rounded-2xl border border-white/40 bg-surface/95 p-5 shadow-lg backdrop-blur">
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600">
-                <MapPin className="h-4 w-4" aria-hidden="true" />
+        {/* Floating value-prop badge on desktop */}
+        <div className="pointer-events-none absolute right-8 top-1/2 hidden -translate-y-1/2 lg:block">
+          <div className="w-64 rounded-2xl border border-white/80 bg-surface/95 p-4 shadow-xl backdrop-blur-md">
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600">
+                <MapPin className="h-5 w-5" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-sm font-semibold leading-5 text-ink">Cleaner streets.</p>
-                <p className="text-sm font-semibold leading-5 text-ink">Stronger communities.</p>
+                <p className="text-sm font-semibold leading-snug text-ink">Cleaner streets.</p>
+                <p className="text-sm font-semibold leading-snug text-ink-muted">Stronger communities.</p>
               </div>
             </div>
           </div>
