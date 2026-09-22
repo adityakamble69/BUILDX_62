@@ -8,7 +8,7 @@ import { useToast } from '@/lib/context/ToastContext';
 import { cn } from '@/lib/utils/cn';
 
 const MAX_PHOTOS = 3; // rules.md §7 / database.md §4
-const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
+const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 /**
  * Step 1 — photos. Files are compressed here (rules.md §16: ≤ 1 MB, ≤ 1600 px wide) so the
@@ -40,7 +40,12 @@ export default function PhotoStep({ photos, onChange }) {
     setWorking(true);
     const added = [];
     for (const file of picked.slice(0, room)) {
-      if (!ACCEPTED.includes(file.type)) {
+      const isImage =
+        ACCEPTED.includes(file.type?.toLowerCase()) ||
+        file.type?.startsWith('image/') ||
+        /\.(jpe?g|png|webp|avif)$/i.test(file.name);
+
+      if (!isImage) {
         toast(`${file.name} is not a JPEG, PNG or WebP`, 'danger');
         continue;
       }
@@ -61,9 +66,13 @@ export default function PhotoStep({ photos, onChange }) {
   }
 
   async function handleInputChange(event) {
-    const files = event.target.files;
+    // Must copy to array BEFORE resetting event.target.value,
+    // otherwise the browser immediately empties the FileList!
+    const files = event.target.files ? Array.from(event.target.files) : [];
     event.target.value = '';
-    await handleFiles(files);
+    if (files.length > 0) {
+      await handleFiles(files);
+    }
   }
 
   function handleDragOver(e) {
