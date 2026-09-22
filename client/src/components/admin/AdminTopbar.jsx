@@ -8,15 +8,12 @@ import { cn } from '@/lib/utils/cn';
 
 /**
  * Admin top navigation. Responsive:
- *   - < sm: search + bell + avatar (refresh + logout hidden — reload/nav available elsewhere)
+ *   - < sm: search + bell + avatar (refresh + logout hidden)
  *   - sm+  : all four action buttons + search
  *   - md+  : admin name + role shown next to the avatar
  *
- * All action buttons carry `suppressHydrationWarning` because password-manager browser
- * extensions (LastPass & similar) stamp a `fdprocessedid` attribute onto buttons before
- * React hydrates — same false positive as memory.md D32 for form fields.
- *
- * @param {{ adminName?: string, adminEmail?: string }} props
+ * The button group carries `ml-auto` so it's pinned to the far right corner on
+ * desktop (search caps at max-w-sm, the remaining space collapses to the middle).
  */
 export default function AdminTopbar({ adminName = 'Admin', adminEmail = '' }) {
   const router = useRouter();
@@ -53,9 +50,9 @@ export default function AdminTopbar({ adminName = 'Admin', adminEmail = '' }) {
   const isOnNotifications = pathname?.startsWith('/notifications');
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-surface">
+    <header className="sticky top-0 z-[1050] border-b border-border bg-surface">
       <div className="flex h-14 items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4 md:px-6">
-        {/* Search — takes remaining width on mobile, capped on md+ */}
+        {/* Search — takes remaining width on mobile, capped on md+. */}
         <form onSubmit={handleSearch} role="search" className="relative min-w-0 flex-1 md:max-w-sm">
           <Search
             className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle sm:left-3 sm:h-4 sm:w-4"
@@ -72,8 +69,9 @@ export default function AdminTopbar({ adminName = 'Admin', adminEmail = '' }) {
           />
         </form>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          {/* Refresh — hidden on mobile (user can pull-to-refresh or use browser refresh) */}
+        {/* Button group — pinned to the far right via ml-auto. */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* Refresh — hidden on mobile */}
           <button
             type="button"
             aria-label="Refresh data"
@@ -137,7 +135,7 @@ export default function AdminTopbar({ adminName = 'Admin', adminEmail = '' }) {
             />
           </button>
 
-          {/* Log out — hidden on mobile (available inside the Clerk profile modal) */}
+          {/* Log out — hidden on mobile */}
           <SignOutButton redirectUrl="/">
             <button
               type="button"
