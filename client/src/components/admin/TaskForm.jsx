@@ -39,13 +39,31 @@ const EMPTY = {
  * therefore the Bearer token) must exist before hitting `/admin/*`, or the server
  * returns 401 and the dropdowns render empty.
  *
- * @param {{ defaultReportId?: string, onCreated: () => void }} props
+ * @param {{
+ *   defaultReportId?: string,
+ *   defaultTitle?: string,
+ *   defaultDepartmentId?: string | number,
+ *   onCreated: () => void,
+ * }} props
  */
-export default function TaskForm({ defaultReportId, onCreated }) {
+export default function TaskForm({
+  defaultReportId,
+  defaultTitle,
+  defaultDepartmentId,
+  onCreated,
+}) {
   const { request, isLoaded } = useApi();
   const { toast } = useToast();
 
-  const [values, setValues] = useState({ ...EMPTY, reportId: defaultReportId ?? '' });
+  const [values, setValues] = useState({
+    ...EMPTY,
+    reportId: defaultReportId ?? '',
+    title: defaultTitle ?? '',
+    departmentId:
+      defaultDepartmentId != null && defaultDepartmentId !== ''
+        ? String(defaultDepartmentId)
+        : '',
+  });
   const [departments, setDepartments] = useState(null);
   const [workers, setWorkers] = useState(null);
   const [errors, setErrors] = useState({});
@@ -106,7 +124,7 @@ export default function TaskForm({ defaultReportId, onCreated }) {
 
     setSaving(true);
     try {
-      await request(authPaths.adminTasks, {
+      await request(authPaths.adminTasks(), {
         method: 'POST',
         body: {
           reportId: values.reportId.trim(),
@@ -124,7 +142,15 @@ export default function TaskForm({ defaultReportId, onCreated }) {
         values.assignedToId ? 'Task assigned — worker can see it now' : 'Task created',
         'success',
       );
-      setValues({ ...EMPTY, reportId: defaultReportId ?? '' });
+      setValues({
+        ...EMPTY,
+        reportId: defaultReportId ?? '',
+        title: defaultTitle ?? '',
+        departmentId:
+          defaultDepartmentId != null && defaultDepartmentId !== ''
+            ? String(defaultDepartmentId)
+            : '',
+      });
       onCreated();
     } catch (err) {
       toast(err?.message || 'Could not assign the task', 'danger');

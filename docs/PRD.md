@@ -51,7 +51,7 @@ Each feature has a purpose tied to the core loop.
 | F4 | Duplicate detection (same category within 50 m) | Reduces noise; suggests upvoting instead of a new report |
 | F5 | Report detail page with status timeline | Trust: citizens see progress |
 | F6 | My Reports page | Citizens track what they submitted |
-| F7 | In-app notifications on status change | Closes the loop with the citizen |
+| F7 | In-app notifications (status change + worker assignment) | Closes the loop with the citizen and the assigned worker |
 | F8 | Admin dashboard (list, filters, sort by upvotes/severity) | Efficient triage |
 | F9 | Admin actions: change status, assign department, add note, upload resolved photo | Resolution workflow |
 | F10 | Admin analytics (counts, resolution rate, avg fix time, category breakdown, hotspot heatmap, department performance) | Decision support + "wow" for judges |
@@ -190,7 +190,8 @@ Detailed in `architecture.md`. Summary:
 
 ## 15. Notifications
 - In-app notifications only (stored in DB, shown via bell icon and `/notifications`).
-- Triggered by: status change, admin note on own report, resolved with after photo (including resolution via approved submission).
+- Triggered by: status change, admin note on own report, resolved with after photo (including resolution via approved submission), **and a worker assignment** (`POST /admin/tasks` with `assignedToId` inserts a notification for that worker).
+- Worker taps the bell → `/notifications` → `/worker/tasks`. Citizen taps → the related report.
 
 ## 16. Integrations
 | Integration | Purpose |

@@ -436,7 +436,7 @@ on conflict (id) do update
 
 | Function | Wraps | Used by |
 |---|---|---|
-| `create_task(report_id, department_id, title, description, assigned_to, assigned_to_id, priority, task_date, due_date, created_by)` | Insert task; auto-assign the report's department if unset | `POST /admin/tasks` |
+| `create_task(report_id, department_id, title, description, assigned_to, assigned_to_id, priority, task_date, due_date, created_by)` | Insert task; auto-assign the report's department if unset. The API then inserts a `notifications` row for `assigned_to_id` (worker bell) — not part of this function. | `POST /admin/tasks` |
 | `update_task_status(task_id, status)` | Simple status flip | `PATCH /admin/tasks/:id/status` |
 | `create_submission(task_id, report_id, assigned_person, resolution_image_path, details)` | Insert submission; flip pending task → in_progress | `POST /admin/submissions` |
 | `review_submission(submission_id, to, admin_id, grade, remarks)` | On approve: complete task + copy resolution image to `report_images` (kind `after`) + `change_report_status(resolved)` (fires citizen notification). On needs_revision: flip task back to in_progress. | `PATCH /admin/submissions/:id/review` |

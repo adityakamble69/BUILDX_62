@@ -6,9 +6,11 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, ArrowUp, Clock, MapPin } from 'lucide-react';
 import { authPaths } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
+import { assignTaskHref } from '@/lib/utils/assignTaskHref';
 import { getCategoryLabel } from '@/lib/utils/categories';
 import { getSeverityLabel } from '@/lib/utils/severity';
 import { timeAgo } from '@/lib/utils/timeAgo';
+import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
@@ -147,6 +149,19 @@ export default function AdminReportManagePage() {
                 currentDepartmentId={report.department?.id}
                 onAssigned={refetch}
               />
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="text-lg font-semibold">Assign a task</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Send this report to a worker with a due date. The worker gets an in-app
+              notification and sees it on My Tasks.
+            </p>
+            <div className="mt-3">
+              <Button as="a" href={assignTaskHref(report)} variant="primary" size="sm">
+                Assign to worker
+              </Button>
             </div>
           </Card>
 

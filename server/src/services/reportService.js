@@ -15,8 +15,9 @@ const REPORT_SUMMARY_SELECT = `
 
 const REPORT_DETAIL_SELECT = `
   id, title, description, status, severity, area_name, upvote_count, lat, lng,
-  created_at, updated_at, resolved_at, reject_reason,
+  created_at, updated_at, resolved_at, reject_reason, ai_severity,
   category:categories!reports_category_id_fkey(id, slug, name, icon),
+  ai_category:categories!reports_ai_category_id_fkey(id, slug, name),
   department:departments(id, name),
   images:report_images(id, storage_path, kind, created_at),
   reporter:profiles!reports_reporter_id_fkey(id, display_name, avatar_url)

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { Bell, CheckCheck } from 'lucide-react';
 import { authPaths } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
@@ -17,18 +18,17 @@ import Pagination from '@/components/ui/Pagination';
 const PAGE_SIZE = 20;
 
 /**
- * `/notifications` — in-app notifications only in v1 (memory.md D4). Rows are created by
- * `change_report_status` (sql/002_functions.sql), so every one points at a report.
- *
- * Opening a notification marks just that one read and navigates; "Mark all as read" sends
- * `{ all: true }`. Both call the context's `refresh()` so the navbar bell's dot updates
- * without waiting for its 60 s poll.
+ * `/notifications` — in-app notifications only in v1 (memory.md D4). Citizen rows come
+ * from `change_report_status`; worker rows come from `POST /admin/tasks` when a worker
+ * account is assigned. Opening one marks it read and routes by role.
  */
 export default function NotificationsPage() {
   const { request, isLoaded } = useApi();
   const { refresh } = useNotifications();
   const { toast } = useToast();
+  const { user } = useUser();
   const router = useRouter();
+  const isWorker = user?.publicMetadata?.role === 'worker';
 
   const [page, setPage] = useState(1);
   const [items, setItems] = useState(null);
@@ -81,7 +81,11 @@ export default function NotificationsPage() {
         .then(refresh)
         .catch(() => {});
     }
-    if (notification.report_id) router.push(`/reports/${notification.report_id}`);
+    if (isWorker) {
+      router.push('/worker/tasks');
+    } else if (notification.report_id) {
+      router.push(`/reports/${notification.report_id}`);
+    }
   }
 
   const unreadOnPage = items?.filter((n) => !n.is_read).length ?? 0;
@@ -91,7 +95,11 @@ export default function NotificationsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">Notifications</h1>
-          <p className="mt-1 text-ink-muted">Updates on the reports you have submitted.</p>
+          <p className="mt-1 text-ink-muted">
+            {isWorker
+              ? 'Updates when the city assigns you a task.'
+              : 'Updates on the reports you have submitted.'}
+          </p>
         </div>
         {unreadOnPage > 0 && (
           <Button variant="secondary" size="sm" onClick={markAllRead} loading={marking}>
@@ -120,7 +128,11 @@ export default function NotificationsPage() {
         <EmptyState
           icon={Bell}
           title="No notifications yet"
-          description="You'll hear from us when the city updates one of your reports."
+          description={
+            isWorker
+              ? "You'll hear from us when the city assigns you a task."
+              : "You'll hear from us when the city updates one of your reports."
+          }
         />
       )}
 

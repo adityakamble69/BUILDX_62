@@ -27,6 +27,7 @@ import PhotoGallery from '@/components/report/PhotoGallery';
 import StatusTimeline from '@/components/report/StatusTimeline';
 import UpvoteButton from '@/components/report/UpvoteButton';
 import CommentsSection from '@/components/report/CommentsSection';
+import ReportReceipt from '@/components/report/ReportReceipt';
 import DynamicMapView from '@/components/map/DynamicMapView';
 
 /**
@@ -36,6 +37,10 @@ import DynamicMapView from '@/components/map/DynamicMapView';
  *
  * Admins visiting this page see an extra "Manage in admin panel" link that jumps to
  * `/admin/reports/[id]`, since that's the surface they actually need.
+ *
+ * The `ReportReceipt` card at the top is the citizen's acknowledgement — reference number,
+ * timestamp, department, status — directly answering the BUILD-X Track 3 scenario pain
+ * point of "submits a written application with no receipt".
  */
 export default function ReportDetailPage() {
   const { id } = useParams();
@@ -123,6 +128,9 @@ export default function ReportDetailPage() {
           </Link>
         )}
       </div>
+
+      {/* Acknowledgement receipt — reference, timestamp, department, status. */}
+      <ReportReceipt report={report} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
@@ -242,17 +250,21 @@ export default function ReportDetailPage() {
 
 function ReportDetailSkeleton() {
   return (
-    <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-6 px-4 py-8 md:px-6 lg:grid-cols-3">
-      <div className="flex flex-col gap-4 lg:col-span-2">
-        <Skeleton className="aspect-video w-full" />
-        <Skeleton variant="text" className="h-7 w-2/3" />
-        <Skeleton variant="text" className="w-1/2" />
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-52 w-full" />
+    <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-4 py-8 md:px-6">
+      <Skeleton className="h-6 w-40" />
+      <Skeleton className="h-24 w-full" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="flex flex-col gap-4 lg:col-span-2">
+          <Skeleton className="aspect-video w-full" />
+          <Skeleton variant="text" className="h-7 w-2/3" />
+          <Skeleton variant="text" className="w-1/2" />
+          <Skeleton className="h-12 w-64" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-52 w-full" />
+        </div>
       </div>
     </div>
   );

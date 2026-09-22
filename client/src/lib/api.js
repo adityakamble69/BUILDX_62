@@ -11,6 +11,10 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch(path, { token, body, headers, ...options } = {}) {
+  if (typeof path !== 'string') {
+    throw new ApiError('Invalid request path', { code: 'INTERNAL_ERROR' });
+  }
+
   let res;
   try {
     res = await fetch(`${API_URL}${path}`, {

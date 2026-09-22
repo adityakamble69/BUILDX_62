@@ -215,7 +215,7 @@ Role independence: `admin` and `worker` are independent Clerk roles. An admin is
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/v1/admin/tasks` | List tasks (filter by status/department/priority) |
-| POST | `/api/v1/admin/tasks` | Create task (optionally assign to worker) |
+| POST | `/api/v1/admin/tasks` | Create task (optionally assign to worker; notifies the worker) |
 | PATCH | `/api/v1/admin/tasks/:id/status` | Update task status |
 | GET | `/api/v1/admin/submissions` | List submissions (filter by status/search) |
 | POST | `/api/v1/admin/submissions` | Create submission (admin-side) |
@@ -264,6 +264,7 @@ Admin ─► POST /admin/tasks { reportId, departmentId, assignedToId, ... }
             │
             ▼
        create_task RPC ─► insert tasks + auto-assign report.department_id if unset
+            └─► API inserts notifications row for assignedToId (worker bell)
 
 Worker ─► POST /me/tasks/:id/submission { resolutionImagePath, details }
             │
@@ -443,6 +444,7 @@ See §14 (`client/src/app`). Guards:
 | D21 | `tasks.assigned_to_id` is deliberately NOT a FK to `profiles` | Admins assign before the worker has signed in; workers resolved live from Clerk |
 | D22 | `worker_create_submission` verifies the caller is the assignee in SQL | Trusting the client would let any worker submit against any task |
 | D23 | Worker role is independent of admin | Cleanest mental model for two orthogonal roles |
+| D24 | Worker assignment notification is inserted in Express after `create_task`, not inside the RPC | Avoids a new SQL migration; `ensureProfile(worker)` runs first because `notifications.user_id` is a FK while `assigned_to_id` is not |
 
 ## 18. Deployment Architecture
 

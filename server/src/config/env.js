@@ -20,7 +20,13 @@ const schema = z.object({
     .transform((v) => v === 'true')
     .pipe(z.boolean()),
   AI_API_KEY: z.string().optional(),
-  AI_MODEL: z.string().default('claude-haiku-4-5-20251001'),
+  // `auto` infers Gemini vs Anthropic from the key prefix (AIza… vs sk-ant-).
+  AI_PROVIDER: z.enum(['auto', 'gemini', 'anthropic']).default('auto'),
+  // Optional override. Empty → provider default (gemini-2.0-flash / claude-haiku-4-5).
+  AI_MODEL: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.trim() !== '' ? v.trim() : undefined)),
 });
 
 const parsed = schema.safeParse(process.env);

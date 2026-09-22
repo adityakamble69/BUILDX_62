@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabaseClient.js';
 import { AppError } from '../utils/AppError.js';
 import { dbError } from '../utils/dbError.js';
+import { logger } from '../utils/logger.js';
 import { toRange } from '../utils/pagination.js';
 
 const TASK_SELECT = `
@@ -63,7 +64,37 @@ export async function createTask(adminId, input) {
     .eq('id', taskId)
     .single();
   if (readErr) throw dbError('createTask(read)', readErr, 'Could not load the new task');
+
+  if (input.assignedToId) {
+    await notifyWorkerAssigned({
+      workerId: input.assignedToId,
+      reportId: input.reportId,
+      title: input.title,
+    });
+  }
+
   return row;
+}
+
+/**
+ * In-app bell for the worker. Kept in the API (not inside `create_task`) so existing
+ * SQL does not need a new migration. Failure is logged, not thrown — the task row is
+ * already committed and the worker can still see it on `/worker/tasks`.
+ */
+async function notifyWorkerAssigned({ workerId, reportId, title }) {
+  const { error } = await supabase.from('notifications').insert({
+    user_id: workerId,
+    report_id: reportId,
+    message: `A new task was assigned to you: "${title}".`,
+  });
+  if (error) {
+    logger.error('Could not notify worker of assignment', {
+      workerId,
+      reportId,
+      message: error.message,
+      code: error.code,
+    });
+  }
 }
 
 /** @param {string} taskId @param {'pending'|'in_progress'|'completed'} status */

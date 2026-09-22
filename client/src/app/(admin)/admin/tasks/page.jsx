@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { authPaths } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
@@ -33,9 +34,17 @@ const PAGE_SIZE = 20;
  * `/admin/tasks` — Assign Task page (design brief §5). Form on top, filterable table
  * below. Backed by `GET /admin/tasks` (paginated, joins report + department) and
  * `POST /admin/tasks` (which also auto-assigns the report's department if missing).
+ *
+ * `?reportId=&title=&departmentId=` pre-fills the form from a report manage/table link.
  */
-export default function AdminTasksPage() {
+function AdminTasksPageInner() {
   const { request, isLoaded } = useApi();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const defaultReportId = searchParams.get('reportId') || undefined;
+  const defaultTitle = searchParams.get('title') || undefined;
+  const defaultDepartmentId = searchParams.get('departmentId') || undefined;
 
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
@@ -106,6 +115,7 @@ export default function AdminTasksPage() {
 
   function handleCreated() {
     setReloadKey((k) => k + 1);
+    if (defaultReportId) router.replace('/admin/tasks');
   }
 
   return (
@@ -117,7 +127,12 @@ export default function AdminTasksPage() {
         </p>
       </div>
 
-      <TaskForm onCreated={handleCreated} />
+      <TaskForm
+        defaultReportId={defaultReportId}
+        defaultTitle={defaultTitle}
+        defaultDepartmentId={defaultDepartmentId}
+        onCreated={handleCreated}
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-40">
@@ -174,5 +189,14 @@ export default function AdminTasksPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** Suspense wrapper — `useSearchParams()` requires one at build time in App Router. */
+export default function AdminTasksPage() {
+  return (
+    <Suspense fallback={<Skeleton className="mx-auto h-96 w-full max-w-[1200px]" />}>
+      <AdminTasksPageInner />
+    </Suspense>
   );
 }

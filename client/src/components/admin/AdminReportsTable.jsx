@@ -6,6 +6,7 @@ import { getCategoryLabel } from '@/lib/utils/categories';
 import { getSeverityLabel } from '@/lib/utils/severity';
 import { getThumbnailUrl } from '@/lib/utils/imageUrl';
 import { timeAgo } from '@/lib/utils/timeAgo';
+import { assignTaskHref } from '@/lib/utils/assignTaskHref';
 
 /**
  * design.md §7 "Tables (admin)": sticky header, row hover, thumbnail/title/category/
@@ -27,6 +28,7 @@ export default function AdminReportsTable({ reports }) {
             <th className="px-4 py-3">Upvotes</th>
             <th className="px-4 py-3">Department</th>
             <th className="px-4 py-3">Created</th>
+            <th className="px-4 py-3 text-right">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -60,6 +62,14 @@ export default function AdminReportsTable({ reports }) {
               </td>
               <td className="px-4 py-3 text-ink-muted">{r.department?.name || '—'}</td>
               <td className="px-4 py-3 text-ink-muted">{timeAgo(r.created_at)}</td>
+              <td className="px-4 py-3 text-right">
+                <Link
+                  href={assignTaskHref(r)}
+                  className="text-xs font-semibold text-primary-600 hover:underline"
+                >
+                  Assign
+                </Link>
+              </td>
             </tr>
           ))}
         </tbody>

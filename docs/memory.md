@@ -1,7 +1,7 @@
 # memory.md — Civic Fix
 
 > Living project state. Update after every meaningful change.
-> Last updated: 2026-09-21
+> Last updated: 2026-09-22
 
 ---
 
@@ -120,7 +120,7 @@ All Phase 0–8 + Phase 7.5 + Worker role code is done. Local dev + browser test
 | 46 | Phase 7.5 built as a complete feature (tasks + submissions tables, 8 RPCs, 4 pages); approving a submission closes the full loop in a single `review_submission` DB function | 2026-09-21 |
 | 47 | Worker role is independent of admin; `tasks.assigned_to_id` is NOT a FK to profiles; workers resolved live from Clerk; `worker_create_submission` verifies assignee ownership in SQL | 2026-09-21 |
 | 48 | Navbar is role-aware: Guest / Citizen / Worker / Admin variants; Report an Issue hidden from worker/admin desktop topbar but kept in mobile drawer | 2026-09-21 |
-| 49 | Admin can file reports via `/report/new` (transparency: same queue); redirected to `/admin/reports/[id]`; admin's own report comment doesn't get "Official" badge | 2026-09-21 |
+| 50 | Worker assignment notification is inserted in Express after `create_task` (not a new RPC) | 2026-09-22 |
 
 ## Dependency Log
 - Installed in Phase 7 (client): `chart.js` ^4.4, `react-chartjs-2` ^5.2
@@ -135,6 +135,7 @@ All Phase 0–8 + Phase 7.5 + Worker role code is done. Local dev + browser test
 - Departments: Roads, Sanitation, Electricity, Water Supply, Drainage.
 
 ## Recent Changes
+- 2026-09-22: Worker assignment notification + report-detail/table "Assign to worker" shortcut (pre-fills `/admin/tasks?reportId=`). Docs: PRD §15, architecture D24, database `create_task` note, memory D50.
 - 2026-09-21: **Full admin + citizen + worker UI redesign** (Batches 1-6) + Phase 7.5 (Assign Task / Submissions / Incomplete / Analytics) + Worker role end-to-end + role-aware Navbar + AdminTopbar + refreshed Sidebar. New SQL: `007_tasks_submissions.sql`, `008_seed_tasks.sql`, `009_worker_role.sql`. Key decisions D43-D49.
 - 2026-09-21: Admin Topbar + role-aware Navbar + Reports page search/export.
 - 2026-09-21: Phase 7.5 backend + frontend built.
