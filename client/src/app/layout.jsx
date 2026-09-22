@@ -23,6 +23,13 @@ const body = DM_Sans({
 export const metadata = {
   title: 'Civic Fix',
   description: 'Report city problems, back the ones that matter, and see them fixed.',
+  icons: {
+    icon: [
+      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.ico' },
+    ],
+    apple: [{ url: '/apple-icon.png' }],
+  },
 };
 
 export default function RootLayout({ children }) {
