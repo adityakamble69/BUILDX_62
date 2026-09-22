@@ -287,16 +287,21 @@ begin
     update tasks set status = 'completed' where id = v_task_id;
 
     -- Copy resolution image to report_images (kind = after) if present
+    -- uploaded_by is NOT NULL references profiles(id) in report_images
     if v_image_path is not null then
-      insert into report_images (report_id, storage_path, kind)
-      values (v_report_id, v_image_path, 'after')
-      on conflict do nothing;
+      if not exists (
+        select 1 from report_images 
+        where report_id = v_report_id and storage_path = v_image_path
+      ) then
+        insert into report_images (report_id, storage_path, kind, uploaded_by)
+        values (v_report_id, v_image_path, 'after', p_admin_id);
+      end if;
     end if;
 
     -- Mark report as resolved + create citizen notification
     perform change_report_status(
       p_report_id  => v_report_id,
-      p_to         => 'resolved',
+      p_to         => 'resolved'::report_status,
       p_admin_id   => p_admin_id,
       p_note       => coalesce(p_remarks, 'Work verified and approved.')
     );
