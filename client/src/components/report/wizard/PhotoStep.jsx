@@ -205,7 +205,7 @@ export default function PhotoStep({ photos, onChange }) {
         ref={fileRef}
         id="report-photo-files"
         type="file"
-        accept={ACCEPTED.join(',')}
+        accept="image/jpeg,image/png,image/webp,image/jpg,image/*"
         multiple
         className="sr-only"
         onChange={handleInputChange}
