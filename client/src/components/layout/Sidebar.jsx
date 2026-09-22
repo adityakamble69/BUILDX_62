@@ -110,7 +110,7 @@ export default function Sidebar() {
         </button>
       </div>
       {open && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-[1100] md:hidden">
           <div
             className="absolute inset-0 bg-[rgba(15,23,42,0.5)]"
             onClick={() => setOpen(false)}
